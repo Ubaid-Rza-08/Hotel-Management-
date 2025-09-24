@@ -126,6 +126,7 @@ public class AuthService {
         log.info("Successfully deleted profile for user: {}", userId);
     }
 
+    // FIXED: Corrected signUpInternal to handle existing users properly
     public UserEntity signUpInternal(SignUpRequestDto signupRequestDto, AuthProviderType authProviderType, String providerId) {
         UserEntity existingUser = userRepository.findByEmail(signupRequestDto.getEmail());
         if (existingUser != null) {
@@ -139,13 +140,44 @@ public class AuthService {
                 updated = true;
             }
 
+            // FIXED: Proper validation for username and phone updates
+            if (signupRequestDto.getUsername() != null && !signupRequestDto.getUsername().equals(existingUser.getUsername())) {
+                UserEntity existingUsername = userRepository.findByUsername(signupRequestDto.getUsername());
+                if (existingUsername != null && !existingUsername.getId().equals(existingUser.getId())) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Username already exists");
+                }
+                existingUser.setUsername(signupRequestDto.getUsername());
+                updated = true;
+            }
+
+            if (signupRequestDto.getPhoneNumber() != null && !signupRequestDto.getPhoneNumber().equals(existingUser.getPhoneNumber())) {
+                UserEntity existingPhone = userRepository.findByPhoneNumber(signupRequestDto.getPhoneNumber());
+                if (existingPhone != null && !existingPhone.getId().equals(existingUser.getId())) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Phone number already exists");
+                }
+                existingUser.setPhoneNumber(signupRequestDto.getPhoneNumber());
+                updated = true;
+            }
+
             if (signupRequestDto.getFullName() != null && !signupRequestDto.getFullName().equals(existingUser.getFullName())) {
                 existingUser.setFullName(signupRequestDto.getFullName());
                 updated = true;
             }
 
+            if (signupRequestDto.getCity() != null && !signupRequestDto.getCity().equals(existingUser.getCity())) {
+                existingUser.setCity(signupRequestDto.getCity());
+                updated = true;
+            }
+
             if (signupRequestDto.getProfilePhotoUrl() != null && !signupRequestDto.getProfilePhotoUrl().equals(existingUser.getProfilePhotoUrl())) {
                 existingUser.setProfilePhotoUrl(signupRequestDto.getProfilePhotoUrl());
+                updated = true;
+            }
+
+            // FIXED: Update roles if provided and different
+            if (signupRequestDto.getRoles() != null && !signupRequestDto.getRoles().isEmpty() &&
+                    !signupRequestDto.getRoles().equals(existingUser.getRoles())) {
+                existingUser.setRoles(signupRequestDto.getRoles());
                 updated = true;
             }
 
@@ -211,6 +243,9 @@ public class AuthService {
                 .build();
         refreshTokenRepository.save(r);
 
+        // FIXED: Clear verified OTP after successful signup
+        otpService.clearVerifiedOtp(signupRequestDto.getEmail());
+
         return SignUpResponseDto.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
@@ -219,7 +254,6 @@ public class AuthService {
                 .build();
     }
 
-    // FIXED: Email login method
     public SignUpResponseDto emailLogin(String email) {
         log.info("Processing email login for: {}", email);
 
@@ -248,7 +282,6 @@ public class AuthService {
                 .build();
     }
 
-    // FIXED: Token revocation method
     public void revokeRefreshToken(String refreshTokenString) throws Exception {
         try {
             Claims claims = authUtil.extractAllClaims(refreshTokenString);
@@ -266,7 +299,6 @@ public class AuthService {
         }
     }
 
-    // FIXED: Improved OAuth2 handling - no repeated login for existing users
     public ResponseEntity<SignUpResponseDto> handleOAuth2SignupRequest(OAuth2User oAuth2User, String registrationId) throws Exception {
         log.info("Processing OAuth2 signup for registration: {}", registrationId);
 
@@ -297,7 +329,7 @@ public class AuthService {
         }
 
         if (user != null) {
-            // FIXED: Existing user - just update info and generate token (no repeated signup)
+            // Existing user - just update info and generate token
             log.info("Existing user found, updating information and generating tokens");
 
             boolean updated = false;
@@ -332,7 +364,7 @@ public class AuthService {
             }
 
         } else {
-            // FIXED: New user - create account
+            // New user - create account
             log.info("New user, creating account");
 
             String username = authUtil.determineUsernameFromOAuth2User(oAuth2User, registrationId, providerId);
@@ -361,7 +393,9 @@ public class AuthService {
                 .build();
         refreshTokenRepository.save(r);
 
-        String message = user.getCreatedAt().equals(user.getUpdatedAt())
+        // FIXED: More accurate message determination
+        boolean isNewUser = user.getCreatedAt().getTime() == user.getUpdatedAt().getTime();
+        String message = isNewUser
                 ? "OAuth2 signup completed successfully"
                 : "OAuth2 login completed successfully";
 

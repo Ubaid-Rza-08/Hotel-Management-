@@ -1,7 +1,7 @@
 package com.ubaid.Auth.service;
 
-
 import com.ubaid.Auth.entity.OtpEntity;
+import com.ubaid.Auth.entity.UserEntity;
 import com.ubaid.Auth.repository.FirebaseOtpRepository;
 import com.ubaid.Auth.repository.FirebaseUserRepository;
 import lombok.RequiredArgsConstructor;
@@ -30,16 +30,21 @@ public class OtpService {
     private final EmailService emailService;
     private final Random random = new Random();
 
-    // FIXED: In-memory cache to track verified OTPs temporarily
+    // In-memory cache to track verified OTPs temporarily
     private final Map<String, Date> verifiedOtpCache = new ConcurrentHashMap<>();
 
+    // FIXED: Modified to allow re-signup for existing users
     public String generateAndSendOtp(String email) {
         log.info("Generating OTP for email: {}", email);
 
-        // Check if user already exists
-        if (userRepository.findByEmail(email) != null) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "User with this email already exists. Please try logging in instead.");
+        // Check if user exists
+        UserEntity existingUser = userRepository.findByEmail(email);
+        boolean isExistingUser = existingUser != null;
+
+        if (isExistingUser) {
+            log.info("User already exists with email: {}, allowing re-signup OTP generation", email);
+            // Remove any existing unverified OTPs for this email first
+            otpRepository.deleteByEmail(email);
         }
 
         // Generate 6-digit OTP
@@ -57,9 +62,16 @@ public class OtpService {
 
         // Send OTP via email
         try {
-            emailService.sendOtpEmail(email, otp);
-            log.info("OTP sent successfully to email: {}", email);
-            return "OTP sent successfully to " + email;
+            if (isExistingUser) {
+                // You can customize the email message for re-signup
+                emailService.sendReSignupOtpEmail(email, otp);
+                log.info("Re-signup OTP sent successfully to email: {}", email);
+                return "Re-signup OTP sent successfully to " + email;
+            } else {
+                emailService.sendOtpEmail(email, otp);
+                log.info("OTP sent successfully to email: {}", email);
+                return "OTP sent successfully to " + email;
+            }
         } catch (Exception e) {
             log.error("Failed to send OTP to email: {}", email, e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to send OTP");
@@ -87,14 +99,14 @@ public class OtpService {
         otpEntity.setVerified(true);
         otpRepository.save(otpEntity);
 
-        // FIXED: Add to verified cache for later validation during signup
+        // Add to verified cache for later validation during signup
         verifiedOtpCache.put(email, new Date());
 
         log.info("OTP verified successfully for email: {}", email);
         return "OTP verified successfully. You can now complete your signup.";
     }
 
-    // FIXED: Proper OTP verification check for signup process
+    // Check if OTP is verified for signup process
     public boolean isOtpVerified(String email) {
         // Check if there's a verified OTP for this email within the last 10 minutes
         Date verifiedTime = verifiedOtpCache.get(email);
@@ -112,7 +124,7 @@ public class OtpService {
         return true;
     }
 
-    // FIXED: Clear verified OTP after successful signup
+    // Clear verified OTP after successful signup
     public void clearVerifiedOtp(String email) {
         verifiedOtpCache.remove(email);
         log.debug("Cleared verified OTP cache for email: {}", email);
@@ -143,7 +155,7 @@ public class OtpService {
         return generateAndSendOtp(email);
     }
 
-    // FIXED: Email login support - generate OTP for existing users
+    // Email login support - generate OTP for existing users
     public String generateLoginOtp(String email) {
         log.info("Generating login OTP for email: {}", email);
 
@@ -152,6 +164,9 @@ public class OtpService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND,
                     "No account found with this email. Please sign up first.");
         }
+
+        // Remove any existing unverified OTPs for this email
+        otpRepository.deleteByEmail(email);
 
         // Generate 6-digit OTP
         String otp = String.format("%06d", random.nextInt(999999));
