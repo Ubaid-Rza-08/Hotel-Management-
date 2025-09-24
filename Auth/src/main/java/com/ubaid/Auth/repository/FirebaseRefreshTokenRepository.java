@@ -1,6 +1,7 @@
 package com.ubaid.Auth.repository;
 
 import com.google.api.core.ApiFuture;
+import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.*;
 import com.ubaid.Auth.entity.RefreshToken;
 import lombok.RequiredArgsConstructor;
@@ -25,17 +26,24 @@ public class FirebaseRefreshTokenRepository {
                 token.setId(UUID.randomUUID().toString());
             }
 
+            // Set createdAt if not already set
+            if (token.getCreatedAt() == null) {
+                token.setCreatedAt(new Date());
+            }
+
             Map<String, Object> tokenMap = new HashMap<>();
             tokenMap.put("jti", token.getJti());
             tokenMap.put("userId", token.getUserId());
-            tokenMap.put("expiresAt", token.getExpiresAt());
+            tokenMap.put("expiresAt", Timestamp.of(token.getExpiresAt()));
             tokenMap.put("revoked", token.getRevoked());
             tokenMap.put("replacedBy", token.getReplacedBy());
-            tokenMap.put("createdAt", token.getCreatedAt());
+            tokenMap.put("createdAt", Timestamp.of(token.getCreatedAt()));
 
             DocumentReference docRef = firestore.collection(COLLECTION_NAME).document(token.getId());
             ApiFuture<WriteResult> result = docRef.set(tokenMap);
             result.get();
+
+            log.debug("Refresh token saved successfully with JTI: {}", token.getJti());
             return token;
         } catch (InterruptedException | ExecutionException e) {
             log.error("Error saving refresh token: {}", e.getMessage());
@@ -55,10 +63,10 @@ public class FirebaseRefreshTokenRepository {
                         .id(documents.get(0).getId())
                         .jti((String) data.get("jti"))
                         .userId((String) data.get("userId"))
-                        .expiresAt((Date) data.get("expiresAt"))
+                        .expiresAt(convertTimestampToDate(data.get("expiresAt")))
                         .revoked((Boolean) data.getOrDefault("revoked", false))
                         .replacedBy((String) data.get("replacedBy"))
-                        .createdAt((Date) data.getOrDefault("createdAt", new Date()))
+                        .createdAt(convertTimestampToDate(data.get("createdAt")))
                         .build();
                 return token;
             }
@@ -82,10 +90,10 @@ public class FirebaseRefreshTokenRepository {
                                 .id(doc.getId())
                                 .jti((String) data.get("jti"))
                                 .userId((String) data.get("userId"))
-                                .expiresAt((Date) data.get("expiresAt"))
+                                .expiresAt(convertTimestampToDate(data.get("expiresAt")))
                                 .revoked((Boolean) data.getOrDefault("revoked", false))
                                 .replacedBy((String) data.get("replacedBy"))
-                                .createdAt((Date) data.getOrDefault("createdAt", new Date()))
+                                .createdAt(convertTimestampToDate(data.get("createdAt")))
                                 .build();
                     })
                     .collect(Collectors.toList());
@@ -99,19 +107,28 @@ public class FirebaseRefreshTokenRepository {
         try {
             WriteBatch batch = firestore.batch();
             for (RefreshToken token : tokens) {
+                if (token.getId() == null || token.getId().isEmpty()) {
+                    token.setId(UUID.randomUUID().toString());
+                }
+
+                if (token.getCreatedAt() == null) {
+                    token.setCreatedAt(new Date());
+                }
+
                 Map<String, Object> tokenMap = new HashMap<>();
                 tokenMap.put("jti", token.getJti());
                 tokenMap.put("userId", token.getUserId());
-                tokenMap.put("expiresAt", token.getExpiresAt());
+                tokenMap.put("expiresAt", Timestamp.of(token.getExpiresAt()));
                 tokenMap.put("revoked", token.getRevoked());
                 tokenMap.put("replacedBy", token.getReplacedBy());
-                tokenMap.put("createdAt", token.getCreatedAt());
+                tokenMap.put("createdAt", Timestamp.of(token.getCreatedAt()));
 
                 DocumentReference docRef = firestore.collection(COLLECTION_NAME).document(token.getId());
                 batch.set(docRef, tokenMap);
             }
             ApiFuture<List<WriteResult>> result = batch.commit();
             result.get();
+            log.debug("Saved {} refresh tokens in batch", tokens.size());
         } catch (InterruptedException | ExecutionException e) {
             log.error("Error saving all refresh tokens: {}", e.getMessage());
             throw new RuntimeException("Failed to save refresh tokens", e);
@@ -130,10 +147,10 @@ public class FirebaseRefreshTokenRepository {
                                 .id(doc.getId())
                                 .jti((String) data.get("jti"))
                                 .userId((String) data.get("userId"))
-                                .expiresAt((Date) data.get("expiresAt"))
+                                .expiresAt(convertTimestampToDate(data.get("expiresAt")))
                                 .revoked((Boolean) data.getOrDefault("revoked", false))
                                 .replacedBy((String) data.get("replacedBy"))
-                                .createdAt((Date) data.getOrDefault("createdAt", new Date()))
+                                .createdAt(convertTimestampToDate(data.get("createdAt")))
                                 .build();
                     })
                     .collect(Collectors.toList());
@@ -148,9 +165,28 @@ public class FirebaseRefreshTokenRepository {
             DocumentReference docRef = firestore.collection(COLLECTION_NAME).document(token.getId());
             ApiFuture<WriteResult> result = docRef.delete();
             result.get();
+            log.debug("Refresh token deleted successfully: {}", token.getJti());
         } catch (InterruptedException | ExecutionException e) {
             log.error("Error deleting refresh token: {}", e.getMessage());
             throw new RuntimeException("Failed to delete refresh token", e);
+        }
+    }
+
+    // FIXED: Helper method to properly convert Timestamp to Date
+    private Date convertTimestampToDate(Object timestampObj) {
+        if (timestampObj == null) {
+            return new Date();
+        }
+
+        if (timestampObj instanceof Timestamp) {
+            return ((Timestamp) timestampObj).toDate();
+        } else if (timestampObj instanceof Date) {
+            return (Date) timestampObj;
+        } else if (timestampObj instanceof Long) {
+            return new Date((Long) timestampObj);
+        } else {
+            log.warn("Unknown timestamp type: {}, using current date", timestampObj.getClass());
+            return new Date();
         }
     }
 }

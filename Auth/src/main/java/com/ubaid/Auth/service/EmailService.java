@@ -37,6 +37,23 @@ public class EmailService {
         }
     }
 
+    // FIXED: Added login OTP email method
+    public void sendLoginOtpEmail(String toEmail, String otp) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(fromEmail);
+            message.setTo(toEmail);
+            message.setSubject("Your Login OTP for " + appName);
+            message.setText(buildLoginOtpEmailBody(otp));
+
+            emailSender.send(message);
+            log.info("Login OTP email sent successfully to: {}", toEmail);
+        } catch (Exception e) {
+            log.error("Failed to send login OTP email to: {}", toEmail, e);
+            throw new RuntimeException("Failed to send login OTP email", e);
+        }
+    }
+
     private String buildOtpEmailBody(String otp) {
         return String.format(
                 "Welcome to %s!\n\n" +
@@ -44,6 +61,20 @@ public class EmailService {
                         "This code will expire in 10 minutes.\n" +
                         "Please do not share this code with anyone.\n\n" +
                         "If you didn't request this code, please ignore this email.\n\n" +
+                        "Best regards,\n" +
+                        "%s Team",
+                appName, otp, appName
+        );
+    }
+
+    private String buildLoginOtpEmailBody(String otp) {
+        return String.format(
+                "Hello,\n\n" +
+                        "You requested to login to your %s account.\n\n" +
+                        "Your login verification code is: %s\n\n" +
+                        "This code will expire in 10 minutes.\n" +
+                        "Please do not share this code with anyone.\n\n" +
+                        "If you didn't request this login, please secure your account immediately.\n\n" +
                         "Best regards,\n" +
                         "%s Team",
                 appName, otp, appName

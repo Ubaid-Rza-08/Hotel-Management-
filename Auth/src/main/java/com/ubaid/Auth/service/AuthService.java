@@ -1,6 +1,5 @@
 package com.ubaid.Auth.service;
 
-
 import com.ubaid.Auth.dto.*;
 import com.ubaid.Auth.entity.RefreshToken;
 import com.ubaid.Auth.entity.UserEntity;
@@ -16,7 +15,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -100,6 +98,7 @@ public class AuthService {
             user.setProfilePhotoUrl(updateRequest.getProfilePhotoUrl());
         }
 
+        user.setUpdatedAt(new Date());
         UserEntity savedUser = userRepository.save(user);
         log.info("Successfully updated profile for user: {}", userId);
 
@@ -130,7 +129,31 @@ public class AuthService {
     public UserEntity signUpInternal(SignUpRequestDto signupRequestDto, AuthProviderType authProviderType, String providerId) {
         UserEntity existingUser = userRepository.findByEmail(signupRequestDto.getEmail());
         if (existingUser != null) {
-            // Return existing user if it's already registered
+            log.info("User already exists with email: {}, updating if necessary", signupRequestDto.getEmail());
+            // Update existing user if provider changed or info is different
+            boolean updated = false;
+
+            if (!authProviderType.equals(existingUser.getProviderType())) {
+                existingUser.setProviderType(authProviderType);
+                existingUser.setProviderId(providerId);
+                updated = true;
+            }
+
+            if (signupRequestDto.getFullName() != null && !signupRequestDto.getFullName().equals(existingUser.getFullName())) {
+                existingUser.setFullName(signupRequestDto.getFullName());
+                updated = true;
+            }
+
+            if (signupRequestDto.getProfilePhotoUrl() != null && !signupRequestDto.getProfilePhotoUrl().equals(existingUser.getProfilePhotoUrl())) {
+                existingUser.setProfilePhotoUrl(signupRequestDto.getProfilePhotoUrl());
+                updated = true;
+            }
+
+            if (updated) {
+                existingUser.setUpdatedAt(new Date());
+                existingUser = userRepository.save(existingUser);
+            }
+
             return existingUser;
         }
 
@@ -159,14 +182,21 @@ public class AuthService {
                 .profilePhotoUrl(signupRequestDto.getProfilePhotoUrl())
                 .providerId(providerId)
                 .providerType(authProviderType)
-                .roles(signupRequestDto.getRoles() != null ? signupRequestDto.getRoles() : Set.of(Roles.USER))
+                .roles(signupRequestDto.getRoles() != null && !signupRequestDto.getRoles().isEmpty() ?
+                        signupRequestDto.getRoles() : Set.of(Roles.USER))
+                .createdAt(new Date())
+                .updatedAt(new Date())
                 .build();
 
         return userRepository.save(user);
     }
 
     public SignUpResponseDto completeSignup(SignUpRequestDto signupRequestDto) {
-        // This is called after OTP verification for email signup
+        // Verify OTP was verified for email signup
+        if (!otpService.isOtpVerified(signupRequestDto.getEmail())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email OTP verification required");
+        }
+
         UserEntity user = signUpInternal(signupRequestDto, AuthProviderType.EMAIL, signupRequestDto.getEmail());
 
         String accessToken = authUtil.generateAccessToken(user);
@@ -189,61 +219,15 @@ public class AuthService {
                 .build();
     }
 
-    public ResponseEntity<SignUpResponseDto> handleOAuth2SignupRequest(OAuth2User oAuth2User, String registrationId) throws Exception {
-        log.info("Processing OAuth2 signup for registration: {}", registrationId);
-        AuthProviderType providerType = authUtil.getProviderTypeFromRegistrationId(registrationId);
-        String providerId = authUtil.determineProviderIdFromOAuth2User(oAuth2User, registrationId);
-        UserEntity user = userRepository.findByProviderIdAndProviderType(providerId, providerType);
+    // FIXED: Email login method
+    public SignUpResponseDto emailLogin(String email) {
+        log.info("Processing email login for: {}", email);
 
-        String email = oAuth2User.getAttribute("email");
-        String fullName = oAuth2User.getAttribute("name");
-        String picture = oAuth2User.getAttribute("picture");
-
-        UserEntity emailUser = (email != null) ? userRepository.findByEmail(email) : null;
-
-        if (user == null && emailUser == null) {
-            // Create new user
-            String username = authUtil.determineUsernameFromOAuth2User(oAuth2User, registrationId, providerId);
-
-            SignUpRequestDto signUpRequest = SignUpRequestDto.builder()
-                    .email(email)
-                    .username(username)
-                    .fullName(fullName)
-                    .roles(new HashSet<>(Arrays.asList(Roles.USER)))
-                    .profilePhotoUrl(picture)
-                    .build();
-
-            user = signUpInternal(signUpRequest, providerType, providerId);
-
-        } else if (user != null) {
-            // Update existing user
-            if (email != null && !email.isBlank() && !email.equals(user.getEmail())) {
-                user.setEmail(email);
-            }
-            if (fullName != null && !fullName.equals(user.getFullName())) {
-                user.setFullName(fullName);
-            }
-            if (picture != null && !picture.equals(user.getProfilePhotoUrl())) {
-                user.setProfilePhotoUrl(picture);
-            }
-            userRepository.save(user);
-
-        } else {
-            // Email exists but with different provider
-            user = emailUser;
-            // Update provider info
-            user.setProviderId(providerId);
-            user.setProviderType(providerType);
-            if (fullName != null && !fullName.equals(user.getFullName())) {
-                user.setFullName(fullName);
-            }
-            if (picture != null && !picture.equals(user.getProfilePhotoUrl())) {
-                user.setProfilePhotoUrl(picture);
-            }
-            userRepository.save(user);
+        UserEntity user = userRepository.findByEmail(email);
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
         }
 
-        // Generate tokens and return response
         String accessToken = authUtil.generateAccessToken(user);
         String refreshJti = UUID.randomUUID().toString();
         String refreshToken = authUtil.generateRefreshToken(user, refreshJti);
@@ -256,11 +240,136 @@ public class AuthService {
                 .build();
         refreshTokenRepository.save(r);
 
+        return SignUpResponseDto.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .userId(user.getId())
+                .message("Login successful")
+                .build();
+    }
+
+    // FIXED: Token revocation method
+    public void revokeRefreshToken(String refreshTokenString) throws Exception {
+        try {
+            Claims claims = authUtil.extractAllClaims(refreshTokenString);
+            String jti = claims.get("refreshJti", String.class);
+
+            RefreshToken stored = refreshTokenRepository.findByJti(jti);
+            if (stored != null && !stored.getRevoked()) {
+                stored.setRevoked(true);
+                refreshTokenRepository.save(stored);
+                log.info("Refresh token revoked successfully");
+            }
+        } catch (Exception e) {
+            log.warn("Error revoking refresh token: {}", e.getMessage());
+            // Don't throw exception for logout - it should always succeed
+        }
+    }
+
+    // FIXED: Improved OAuth2 handling - no repeated login for existing users
+    public ResponseEntity<SignUpResponseDto> handleOAuth2SignupRequest(OAuth2User oAuth2User, String registrationId) throws Exception {
+        log.info("Processing OAuth2 signup for registration: {}", registrationId);
+
+        AuthProviderType providerType = authUtil.getProviderTypeFromRegistrationId(registrationId);
+        String providerId = authUtil.determineProviderIdFromOAuth2User(oAuth2User, registrationId);
+
+        String email = oAuth2User.getAttribute("email");
+        String fullName = oAuth2User.getAttribute("name");
+        String picture = oAuth2User.getAttribute("picture");
+        String givenName = oAuth2User.getAttribute("given_name");
+        String familyName = oAuth2User.getAttribute("family_name");
+
+        // Construct full name if not available
+        if (fullName == null || fullName.trim().isEmpty()) {
+            fullName = (givenName != null ? givenName : "") +
+                    (familyName != null ? " " + familyName : "");
+            fullName = fullName.trim();
+        }
+
+        UserEntity user = null;
+
+        // First, check if user exists by provider ID and type (most specific match)
+        user = userRepository.findByProviderIdAndProviderType(providerId, providerType);
+
+        if (user == null && email != null) {
+            // Check if user exists by email (different provider or first-time OAuth)
+            user = userRepository.findByEmail(email);
+        }
+
+        if (user != null) {
+            // FIXED: Existing user - just update info and generate token (no repeated signup)
+            log.info("Existing user found, updating information and generating tokens");
+
+            boolean updated = false;
+
+            // Update provider info if different
+            if (!Objects.equals(user.getProviderId(), providerId) ||
+                    !Objects.equals(user.getProviderType(), providerType)) {
+                user.setProviderId(providerId);
+                user.setProviderType(providerType);
+                updated = true;
+            }
+
+            // Update profile info if changed
+            if (email != null && !Objects.equals(user.getEmail(), email)) {
+                user.setEmail(email);
+                updated = true;
+            }
+
+            if (fullName != null && !fullName.isEmpty() && !Objects.equals(user.getFullName(), fullName)) {
+                user.setFullName(fullName);
+                updated = true;
+            }
+
+            if (picture != null && !Objects.equals(user.getProfilePhotoUrl(), picture)) {
+                user.setProfilePhotoUrl(picture);
+                updated = true;
+            }
+
+            if (updated) {
+                user.setUpdatedAt(new Date());
+                user = userRepository.save(user);
+            }
+
+        } else {
+            // FIXED: New user - create account
+            log.info("New user, creating account");
+
+            String username = authUtil.determineUsernameFromOAuth2User(oAuth2User, registrationId, providerId);
+
+            SignUpRequestDto signUpRequest = SignUpRequestDto.builder()
+                    .email(email)
+                    .username(username)
+                    .fullName(fullName)
+                    .roles(Set.of(Roles.USER))
+                    .profilePhotoUrl(picture)
+                    .build();
+
+            user = signUpInternal(signUpRequest, providerType, providerId);
+        }
+
+        // Generate tokens for both existing and new users
+        String accessToken = authUtil.generateAccessToken(user);
+        String refreshJti = UUID.randomUUID().toString();
+        String refreshToken = authUtil.generateRefreshToken(user, refreshJti);
+
+        RefreshToken r = RefreshToken.builder()
+                .jti(refreshJti)
+                .userId(user.getId())
+                .expiresAt(new Date(System.currentTimeMillis() + refreshTokenMillis))
+                .revoked(false)
+                .build();
+        refreshTokenRepository.save(r);
+
+        String message = user.getCreatedAt().equals(user.getUpdatedAt())
+                ? "OAuth2 signup completed successfully"
+                : "OAuth2 login completed successfully";
+
         return ResponseEntity.ok(SignUpResponseDto.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .userId(user.getId())
-                .message("OAuth2 signup completed successfully")
+                .message(message)
                 .build());
     }
 
@@ -269,24 +378,37 @@ public class AuthService {
         Claims claims = authUtil.extractAllClaims(refreshTokenString);
         String oldJti = claims.get("refreshJti", String.class);
         Date tokenExpiry = claims.getExpiration();
+
         RefreshToken stored = refreshTokenRepository.findByJti(oldJti);
-        if (stored == null) throw new IllegalArgumentException("Refresh token not found");
+        if (stored == null) {
+            throw new IllegalArgumentException("Refresh token not found");
+        }
+
         if (stored.getRevoked()) {
             revokeAllTokensForUser(userId);
             throw new Exception("Refresh token reuse detected. All tokens revoked. Re-signup required.");
         }
+
         if (tokenExpiry.before(new Date())) {
             stored.setRevoked(true);
             refreshTokenRepository.save(stored);
             throw new Exception("Refresh token expired");
         }
-        UserEntity user = userRepository.findById(userId).get();
+
+        Optional<UserEntity> userOpt = userRepository.findById(userId);
+        if (userOpt.isEmpty()) {
+            throw new Exception("User not found");
+        }
+
+        UserEntity user = userOpt.get();
         String newRefreshJti = UUID.randomUUID().toString();
         String newRefreshToken = authUtil.generateRefreshToken(user, newRefreshJti);
         String newAccessToken = authUtil.generateAccessToken(user);
+
         stored.setRevoked(true);
         stored.setReplacedBy(newRefreshJti);
         refreshTokenRepository.save(stored);
+
         RefreshToken newStored = RefreshToken.builder()
                 .jti(newRefreshJti)
                 .userId(userId)
@@ -298,7 +420,7 @@ public class AuthService {
         return new RefreshResponseDto(newAccessToken, newRefreshToken);
     }
 
-    // Admin methods
+    // Admin methods with proper role checking
     public List<UserSearchResponseDto> getAllUsers() {
         log.info("Admin fetching all users");
         List<UserEntity> users = userRepository.findAll();

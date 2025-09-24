@@ -9,46 +9,26 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.*;
 import java.util.stream.Collectors;
+
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class UserEntity implements UserDetails {
-    private String id; // Auto-generated UUID
+    private String id;
+    private String email;
+    private String username;
+    private String fullName;
+    private String phoneNumber;
+    private String city;
+    private String profilePhotoUrl;
+    private String providerId;
+    private AuthProviderType providerType;
+    private Set<Roles> roles;
+    private Date createdAt;
+    private Date updatedAt;
 
-    @Builder.Default
-    private String email = "";
-
-    @Builder.Default
-    private String username = "";
-
-    @Builder.Default
-    private String fullName = "";
-
-    @Builder.Default
-    private String phoneNumber = "";
-
-    @Builder.Default
-    private String city = "";
-
-    @Builder.Default
-    private String profilePhotoUrl = "";
-
-    @Builder.Default
-    private String providerId = ""; // Google providerId or email for EMAIL type
-
-    @Builder.Default
-    private AuthProviderType providerType = AuthProviderType.EMAIL;
-
-    @Builder.Default
-    private Set<Roles> roles = new HashSet<>(Arrays.asList(Roles.USER));
-
-    @Builder.Default
-    private Date createdAt = new Date();
-
-    @Builder.Default
-    private Date updatedAt = new Date();
-
+    // FIXED: Proper role-based authorities implementation
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return roles.stream()
@@ -57,17 +37,59 @@ public class UserEntity implements UserDetails {
     }
 
     @Override
-    public String getPassword() { return null; } // No password needed
+    public String getPassword() {
+        // OAuth2 and email-based users don't have passwords
+        return null;
+    }
 
     @Override
-    public boolean isAccountNonExpired() { return true; }
+    public String getUsername() {
+        return username;
+    }
 
     @Override
-    public boolean isAccountNonLocked() { return true; }
+    public boolean isAccountNonExpired() {
+        return true;
+    }
 
     @Override
-    public boolean isCredentialsNonExpired() { return true; }
+    public boolean isAccountNonLocked() {
+        return true;
+    }
 
     @Override
-    public boolean isEnabled() { return true; }
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return true;
+    }
+
+    // Helper method to check if user has specific role
+    public boolean hasRole(Roles role) {
+        return roles != null && roles.contains(role);
+    }
+
+    // Helper method to check if user has admin role
+    public boolean isAdmin() {
+        return hasRole(Roles.ADMIN);
+    }
+
+    // Helper method to add role
+    public void addRole(Roles role) {
+        if (roles == null) {
+            roles = Set.of(role);
+        } else {
+            roles.add(role);
+        }
+    }
+
+    // Helper method to remove role
+    public void removeRole(Roles role) {
+        if (roles != null) {
+            roles.remove(role);
+        }
+    }
 }
