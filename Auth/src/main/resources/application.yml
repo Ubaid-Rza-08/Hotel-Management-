@@ -52,7 +52,9 @@ server:
 app:
   name: Hotel Management System
   oauth2:
+    # Default redirect URL for OAuth2 success
     default-redirect-url: http://localhost:3000/auth/callback
+    # Authorized redirect URIs (comma-separated)
     authorized-redirect-uris:
       - http://localhost:3000/auth/callback
       - http://localhost:3000/login
