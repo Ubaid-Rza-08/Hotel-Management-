@@ -1,11 +1,11 @@
 package com.ubaid.hotel_listing_service.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ubaid.hotel_listing_service.dto.ApiResponse;
 import com.ubaid.hotel_listing_service.dto.HotelRequestDTO;
 import com.ubaid.hotel_listing_service.dto.HotelResponseDTO;
 import com.ubaid.hotel_listing_service.service.HotelService;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -22,12 +22,13 @@ import java.util.List;
 public class HotelController {
 
     private final HotelService hotelService;
+    private final ObjectMapper objectMapper;
 
     @PostMapping(value = "/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<HotelResponseDTO>> createHotel(
-            @Valid @RequestPart("hotel") HotelRequestDTO hotelRequest,
-            @RequestPart(value = "hotelImages", required = false) List<MultipartFile> hotelImages,
-            @RequestPart(value = "googleMapScreenshot", required = false) MultipartFile googleMapScreenshot,
+            @RequestParam("hotel") String hotelJson,
+            @RequestParam(value = "hotelImages", required = false) List<MultipartFile> hotelImages,
+            @RequestParam(value = "googleMapScreenshot", required = false) MultipartFile googleMapScreenshot,
             HttpServletRequest request) {
 
         String userId = (String) request.getAttribute("userId");
@@ -37,6 +38,9 @@ public class HotelController {
         }
 
         try {
+            // Parse JSON string to DTO
+            HotelRequestDTO hotelRequest = objectMapper.readValue(hotelJson, HotelRequestDTO.class);
+
             HotelResponseDTO hotel = hotelService.createHotel(userId, hotelRequest,
                     hotelImages, googleMapScreenshot);
             return ResponseEntity.ok(ApiResponse.success("Hotel created successfully", hotel));
@@ -68,9 +72,9 @@ public class HotelController {
     @PutMapping(value = "/update/{hotelId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<HotelResponseDTO>> updateHotel(
             @PathVariable String hotelId,
-            @Valid @RequestPart("hotel") HotelRequestDTO hotelRequest,
-            @RequestPart(value = "hotelImages", required = false) List<MultipartFile> hotelImages,
-            @RequestPart(value = "googleMapScreenshot", required = false) MultipartFile googleMapScreenshot,
+            @RequestParam(value = "hotel", required = false) String hotelJson,
+            @RequestParam(value = "hotelImages", required = false) List<MultipartFile> hotelImages,
+            @RequestParam(value = "googleMapScreenshot", required = false) MultipartFile googleMapScreenshot,
             HttpServletRequest request) {
 
         String userId = (String) request.getAttribute("userId");
@@ -80,6 +84,12 @@ public class HotelController {
         }
 
         try {
+            // Handle case where hotel JSON might not be provided for update
+            HotelRequestDTO hotelRequest = null;
+            if (hotelJson != null && !hotelJson.trim().isEmpty()) {
+                hotelRequest = objectMapper.readValue(hotelJson, HotelRequestDTO.class);
+            }
+
             HotelResponseDTO hotel = hotelService.updateHotel(userId, hotelId, hotelRequest,
                     hotelImages, googleMapScreenshot);
             return ResponseEntity.ok(ApiResponse.success("Hotel updated successfully", hotel));
@@ -145,6 +155,19 @@ public class HotelController {
             log.error("Error searching hotels: {}", e.getMessage());
             return ResponseEntity.status(500)
                     .body(ApiResponse.error("Failed to search hotels: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/public/search-by-name")
+    public ResponseEntity<ApiResponse<List<HotelResponseDTO>>> searchHotelsByName(
+            @RequestParam String name) {
+        try {
+            List<HotelResponseDTO> hotels = hotelService.searchHotelsByName(name);
+            return ResponseEntity.ok(ApiResponse.success("Hotels found by name successfully", hotels));
+        } catch (Exception e) {
+            log.error("Error searching hotels by name: {}", e.getMessage());
+            return ResponseEntity.status(500)
+                    .body(ApiResponse.error("Failed to search hotels by name: " + e.getMessage()));
         }
     }
 }

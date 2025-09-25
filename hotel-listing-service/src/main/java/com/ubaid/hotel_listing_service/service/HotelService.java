@@ -115,37 +115,50 @@ public class HotelService {
                 throw new HotelException("Unauthorized: You can only update your own hotels");
             }
 
-            // Validate images count
-            if (hotelImages != null && hotelImages.size() > 12) {
-                throw new HotelException("Maximum 12 hotel images are allowed");
+            // Check if we have any updates to apply
+            boolean hasUpdates = hotelRequest != null ||
+                    (hotelImages != null && !hotelImages.isEmpty()) ||
+                    (googleMapScreenshot != null && !googleMapScreenshot.isEmpty());
+
+            if (!hasUpdates) {
+                throw new HotelException("No updates provided. Please provide hotel data or images to update.");
             }
 
-            // Validate descriptions count
-            if (hotelRequest.getDescriptions() != null && hotelRequest.getDescriptions().size() > 5) {
-                throw new HotelException("Maximum 5 descriptions are allowed");
+            // Update hotel metadata only if hotelRequest is provided
+            if (hotelRequest != null) {
+                // Validate images count
+                if (hotelImages != null && hotelImages.size() > 12) {
+                    throw new HotelException("Maximum 12 hotel images are allowed");
+                }
+
+                // Validate descriptions count
+                if (hotelRequest.getDescriptions() != null && hotelRequest.getDescriptions().size() > 5) {
+                    throw new HotelException("Maximum 5 descriptions are allowed");
+                }
+
+                // Validate amenities count
+                if (hotelRequest.getAmenities() != null && hotelRequest.getAmenities().size() > 15) {
+                    throw new HotelException("Maximum 15 amenities are allowed");
+                }
+
+                // Update hotel fields
+                existingHotel.setHotelName(hotelRequest.getHotelName());
+                existingHotel.setRating(hotelRequest.getRating());
+                existingHotel.setHotelLocation(hotelRequest.getHotelLocation());
+                existingHotel.setLocationLink(hotelRequest.getLocationLink());
+
+                // Handle null safety for descriptions and amenities
+                if (hotelRequest.getDescriptions() != null) {
+                    existingHotel.setDescriptions(hotelRequest.getDescriptions());
+                }
+                if (hotelRequest.getAmenities() != null) {
+                    existingHotel.setAmenities(hotelRequest.getAmenities());
+                }
+
+                existingHotel.setCheckinTime(hotelRequest.getCheckinTime());
+                existingHotel.setCheckoutTime(hotelRequest.getCheckoutTime());
             }
 
-            // Validate amenities count
-            if (hotelRequest.getAmenities() != null && hotelRequest.getAmenities().size() > 15) {
-                throw new HotelException("Maximum 15 amenities are allowed");
-            }
-
-            // Update hotel fields
-            existingHotel.setHotelName(hotelRequest.getHotelName());
-            existingHotel.setRating(hotelRequest.getRating());
-            existingHotel.setHotelLocation(hotelRequest.getHotelLocation());
-            existingHotel.setLocationLink(hotelRequest.getLocationLink());
-
-            // Handle null safety for descriptions and amenities
-            if (hotelRequest.getDescriptions() != null) {
-                existingHotel.setDescriptions(hotelRequest.getDescriptions());
-            }
-            if (hotelRequest.getAmenities() != null) {
-                existingHotel.setAmenities(hotelRequest.getAmenities());
-            }
-
-            existingHotel.setCheckinTime(hotelRequest.getCheckinTime());
-            existingHotel.setCheckoutTime(hotelRequest.getCheckoutTime());
             existingHotel.setUpdatedAt(LocalDateTime.now());
 
             // Handle hotel images update
@@ -254,6 +267,22 @@ public class HotelService {
         } catch (Exception e) {
             log.error("Error searching hotels by location {}: {}", location, e.getMessage());
             throw new HotelException("Failed to search hotels: " + e.getMessage());
+        }
+    }
+
+    public List<HotelResponseDTO> searchHotelsByName(String name) {
+        try {
+            if (name == null || name.trim().isEmpty()) {
+                throw new HotelException("Hotel name parameter is required for search");
+            }
+
+            List<Hotel> hotels = hotelRepository.findByNameContaining(name.trim());
+            return hotels.stream()
+                    .map(this::convertToResponseDTO)
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("Error searching hotels by name {}: {}", name, e.getMessage());
+            throw new HotelException("Failed to search hotels by name: " + e.getMessage());
         }
     }
 

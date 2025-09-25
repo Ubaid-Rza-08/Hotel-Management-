@@ -13,14 +13,17 @@ firebase:
   service-account-key-path: ${FIREBASE_SERVICE_ACCOUNT_KEY_PATH}
   project-id: ${FIREBASE_PROJECT_ID}
 
+# Cloudinary Configuration
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME}
   api-key: ${CLOUDINARY_API_KEY}
   api-secret: ${CLOUDINARY_API_SECRET}
 
+# JWT settings (should match your Auth service)
 jwt:
   secret: ${JWT_SECRET}
 
+# Auth service configuration
 auth-service:
   url: ${AUTH_SERVICE_URL}
 
@@ -37,6 +40,7 @@ management:
       exposure:
         include: health,info
 
+# Logging Configuration
 logging:
   level:
     com.ubaid.hotel_listing_service: INFO
