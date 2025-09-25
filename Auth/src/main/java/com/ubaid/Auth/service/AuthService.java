@@ -34,6 +34,7 @@ public class AuthService {
     private final FirebaseUserRepository userRepository;
     private final EmailService emailService;
     private final OtpService otpService;
+    private final CloudinaryService cloudinaryService;
 
     public ProfileResponseDto getProfile(String userId) {
         log.info("Getting profile for user: {}", userId);
@@ -59,6 +60,9 @@ public class AuthService {
 
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        // Store old profile photo URL for potential cleanup
+        String oldProfilePhotoUrl = user.getProfilePhotoUrl();
 
         // Check if email is being changed and if it already exists
         if (updateRequest.getEmail() != null && !updateRequest.getEmail().equals(user.getEmail())) {
@@ -94,8 +98,20 @@ public class AuthService {
             user.setCity(updateRequest.getCity().trim());
         }
 
+        // Handle profile photo URL update
         if (updateRequest.getProfilePhotoUrl() != null) {
             user.setProfilePhotoUrl(updateRequest.getProfilePhotoUrl());
+
+            // If profile photo URL is being cleared (set to null or empty),
+            // delete the old image from Cloudinary
+            if (updateRequest.getProfilePhotoUrl().isEmpty() && oldProfilePhotoUrl != null) {
+                try {
+                    cloudinaryService.deleteImage(oldProfilePhotoUrl);
+                    log.info("Deleted old profile image for user: {}", userId);
+                } catch (Exception e) {
+                    log.warn("Failed to delete old profile image for user: {}, continuing with update", userId, e);
+                }
+            }
         }
 
         user.setUpdatedAt(new Date());
@@ -121,12 +137,26 @@ public class AuthService {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
+        // Delete profile image from Cloudinary if exists
+        if (user.getProfilePhotoUrl() != null && !user.getProfilePhotoUrl().isEmpty()) {
+            try {
+                boolean deleted = cloudinaryService.deleteImage(user.getProfilePhotoUrl());
+                if (deleted) {
+                    log.info("Profile image deleted from Cloudinary for user: {}", userId);
+                } else {
+                    log.warn("Failed to delete profile image from Cloudinary for user: {}", userId);
+                }
+            } catch (Exception e) {
+                log.error("Error deleting profile image from Cloudinary for user: {}", userId, e);
+            }
+        }
+
         revokeAllTokensForUser(userId);
         userRepository.delete(user);
         log.info("Successfully deleted profile for user: {}", userId);
     }
 
-    // FIXED: Corrected signUpInternal to handle existing users properly
+    // Enhanced signUpInternal to handle OAuth2 profile images from providers
     public UserEntity signUpInternal(SignUpRequestDto signupRequestDto, AuthProviderType authProviderType, String providerId) {
         UserEntity existingUser = userRepository.findByEmail(signupRequestDto.getEmail());
         if (existingUser != null) {
@@ -169,9 +199,23 @@ public class AuthService {
                 updated = true;
             }
 
+            // Enhanced: Handle profile photo URL updates with Cloudinary cleanup
             if (signupRequestDto.getProfilePhotoUrl() != null && !signupRequestDto.getProfilePhotoUrl().equals(existingUser.getProfilePhotoUrl())) {
+                String oldPhotoUrl = existingUser.getProfilePhotoUrl();
                 existingUser.setProfilePhotoUrl(signupRequestDto.getProfilePhotoUrl());
                 updated = true;
+
+                // Delete old Cloudinary image if it exists and is different from the new one
+                if (oldPhotoUrl != null && !oldPhotoUrl.isEmpty() &&
+                        oldPhotoUrl.contains("cloudinary.com") &&
+                        !oldPhotoUrl.equals(signupRequestDto.getProfilePhotoUrl())) {
+                    try {
+                        cloudinaryService.deleteImage(oldPhotoUrl);
+                        log.info("Deleted old profile image during user update: {}", existingUser.getEmail());
+                    } catch (Exception e) {
+                        log.warn("Failed to delete old profile image during user update: {}", existingUser.getEmail(), e);
+                    }
+                }
             }
 
             // FIXED: Update roles if provided and different
@@ -243,7 +287,7 @@ public class AuthService {
                 .build();
         refreshTokenRepository.save(r);
 
-        // FIXED: Clear verified OTP after successful signup
+        // Clear verified OTP after successful signup
         otpService.clearVerifiedOtp(signupRequestDto.getEmail());
 
         return SignUpResponseDto.builder()
@@ -299,6 +343,7 @@ public class AuthService {
         }
     }
 
+    // Enhanced OAuth2 handler with better profile photo management
     public ResponseEntity<SignUpResponseDto> handleOAuth2SignupRequest(OAuth2User oAuth2User, String registrationId) throws Exception {
         log.info("Processing OAuth2 signup for registration: {}", registrationId);
 
@@ -333,6 +378,7 @@ public class AuthService {
             log.info("Existing user found, updating information and generating tokens");
 
             boolean updated = false;
+            String oldProfilePhotoUrl = user.getProfilePhotoUrl();
 
             // Update provider info if different
             if (!Objects.equals(user.getProviderId(), providerId) ||
@@ -353,9 +399,22 @@ public class AuthService {
                 updated = true;
             }
 
+            // Enhanced: Handle OAuth2 profile picture updates with Cloudinary cleanup
             if (picture != null && !Objects.equals(user.getProfilePhotoUrl(), picture)) {
                 user.setProfilePhotoUrl(picture);
                 updated = true;
+
+                // Delete old Cloudinary image if it exists and is different from OAuth2 picture
+                if (oldProfilePhotoUrl != null && !oldProfilePhotoUrl.isEmpty() &&
+                        oldProfilePhotoUrl.contains("cloudinary.com") &&
+                        !oldProfilePhotoUrl.equals(picture)) {
+                    try {
+                        cloudinaryService.deleteImage(oldProfilePhotoUrl);
+                        log.info("Deleted old Cloudinary profile image, replaced with OAuth2 picture for user: {}", email);
+                    } catch (Exception e) {
+                        log.warn("Failed to delete old Cloudinary profile image for user: {}", email, e);
+                    }
+                }
             }
 
             if (updated) {
@@ -393,7 +452,7 @@ public class AuthService {
                 .build();
         refreshTokenRepository.save(r);
 
-        // FIXED: More accurate message determination
+        // More accurate message determination
         boolean isNewUser = user.getCreatedAt().getTime() == user.getUpdatedAt().getTime();
         String message = isNewUser
                 ? "OAuth2 signup completed successfully"

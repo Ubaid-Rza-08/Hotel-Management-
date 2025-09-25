@@ -12,7 +12,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.web.servlet.HandlerExceptionResolver;
 
 import java.util.List;
 
@@ -23,17 +22,18 @@ import java.util.List;
 public class WebSecurityConfig {
     private final JwtAuthFilter jwtAuthFilter;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
-    private final HandlerExceptionResolver handlerExceptionResolver;
+    private final HttpCookieOAuth2AuthorizationRequestRepository cookieAuthorizationRequestRepository;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
+        log.info("Configuring security filter chain");
+
         httpSecurity
                 .csrf(csrfConfig -> csrfConfig.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(sessionConfig ->
                         sessionConfig.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Public endpoints - no authentication required
                         .requestMatchers("/api/v1/public/**").permitAll()
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers("/v3/api-docs/**").permitAll()
@@ -43,30 +43,33 @@ public class WebSecurityConfig {
                         .requestMatchers("/webjars/**").permitAll()
                         .requestMatchers("/favicon.ico").permitAll()
                         .requestMatchers("/error").permitAll()
-
-                        // OAuth2 endpoints
                         .requestMatchers("/oauth2/**").permitAll()
                         .requestMatchers("/login/oauth2/**").permitAll()
                         .requestMatchers("/login").permitAll()
-
-                        // Protected endpoints - authentication required
                         .requestMatchers("/api/v1/profile/**").authenticated()
-
-                        // FIXED: Admin endpoints - require ADMIN role
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-
-                        // All other requests require authentication
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .oauth2Login(oAuth2 -> oAuth2
+                        .authorizationEndpoint(authorization -> authorization
+                                .authorizationRequestRepository(cookieAuthorizationRequestRepository)
+                        )
                         .failureHandler((request, response, exception) -> {
-                            log.error("OAuth2 error: {}", exception.getMessage());
-                            handlerExceptionResolver.resolveException(request, response, null, exception);
+                            log.error("OAuth2 error: {}", exception.getMessage(), exception);
+
+                            cookieAuthorizationRequestRepository.removeAuthorizationRequest(request, response);
+
+                            response.setStatus(401);
+                            response.setContentType("application/json");
+                            response.getWriter().write(String.format(
+                                    "{\"error\":\"OAuth2 Authentication Failed\",\"message\":\"%s\",\"timestamp\":%d}",
+                                    exception.getMessage().replace("\"", "\\\""),
+                                    System.currentTimeMillis()
+                            ));
                         })
                         .successHandler(oAuth2SuccessHandler)
                 )
-                // FIXED: Exception handling
                 .exceptionHandling(ex -> ex
                         .accessDeniedHandler((request, response, accessDeniedException) -> {
                             log.warn("Access denied for request: {} - {}", request.getRequestURI(), accessDeniedException.getMessage());
