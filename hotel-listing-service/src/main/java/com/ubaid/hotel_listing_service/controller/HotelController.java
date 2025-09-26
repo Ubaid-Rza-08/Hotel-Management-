@@ -5,6 +5,7 @@ import com.ubaid.hotel_listing_service.dto.ApiResponse;
 import com.ubaid.hotel_listing_service.dto.HotelRequestDTO;
 import com.ubaid.hotel_listing_service.dto.HotelResponseDTO;
 import com.ubaid.hotel_listing_service.service.HotelService;
+import com.ubaid.hotel_listing_service.service.JwtService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +24,7 @@ public class HotelController {
 
     private final HotelService hotelService;
     private final ObjectMapper objectMapper;
+    private final JwtService jwtService; // Added JwtService
 
     @PostMapping(value = "/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<HotelResponseDTO>> createHotel(
@@ -168,6 +170,53 @@ public class HotelController {
             log.error("Error searching hotels by name: {}", e.getMessage());
             return ResponseEntity.status(500)
                     .body(ApiResponse.error("Failed to search hotels by name: " + e.getMessage()));
+        }
+    }
+
+    // Add hotel ownership validation endpoint
+    @GetMapping("/validate-ownership")
+    public ResponseEntity<Boolean> validateHotelOwnership(
+            @RequestParam String userId,
+            @RequestParam String hotelId,
+            @RequestHeader("Authorization") String authHeader) {
+
+        log.info("Hotel ownership validation request for userId: {} and hotelId: {}", userId, hotelId);
+
+        try {
+            // Extract token from Authorization header
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                log.warn("Invalid authorization header for hotel ownership validation");
+                return ResponseEntity.status(401).body(false);
+            }
+
+            String token = authHeader.substring(7).trim();
+
+            // Validate the token and extract user ID
+            if (!jwtService.validateToken(token)) {
+                log.warn("Invalid token for hotel ownership validation");
+                return ResponseEntity.status(401).body(false);
+            }
+
+            String tokenUserId = jwtService.extractUserId(token);
+
+            // Check if the user ID from token matches the requested user ID
+            if (!userId.equals(tokenUserId)) {
+                log.warn("Token user ID does not match requested user ID for hotel validation");
+                return ResponseEntity.status(403).body(false);
+            }
+
+            // Check if hotel exists and if user owns it
+            boolean isOwner = hotelService.isHotelOwner(userId, hotelId);
+
+            log.info("Hotel ownership validation result for userId: {} and hotelId: {} = {}",
+                    userId, hotelId, isOwner);
+
+            return ResponseEntity.ok(isOwner);
+
+        } catch (Exception e) {
+            log.error("Error validating hotel ownership for userId: {} and hotelId: {}",
+                    userId, hotelId, e);
+            return ResponseEntity.status(500).body(false);
         }
     }
 }

@@ -1,0 +1,53 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: room-listing-service
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 50MB
+
+# Firebase Configuration
+firebase:
+  service-account-key-path: ${FIREBASE_KEY_PATH}
+  project-id: ${FIREBASE_PROJECT_ID:jailer-2f131}
+
+# Cloudinary Configuration
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME}
+  api-key: ${CLOUDINARY_API_KEY}
+  api-secret: ${CLOUDINARY_API_SECRET}
+
+# JWT settings (should match your Auth service)
+jwt:
+  secret: ${JWT_SECRET}
+
+# Service URLs
+auth-service:
+  url: ${AUTH_SERVICE_URL:http://localhost:8080}
+
+hotel-service:
+  url: ${HOTEL_SERVICE_URL:http://localhost:8082}
+
+# Management Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+# Logging Configuration
+logging:
+  level:
+    com.ubaid.room_listing_service: INFO
+    com.ubaid.room_listing_service.config.SecurityConfig: DEBUG
+    com.ubaid.room_listing_service.service.JwtService: DEBUG
+    com.ubaid.room_listing_service.interceptor: DEBUG
+    org.springframework.security: INFO
+    org.springframework.security.web: DEBUG
+    org.springframework.web.servlet.mvc.method.annotation: DEBUG
+    org.springframework.cloud.openfeign: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"

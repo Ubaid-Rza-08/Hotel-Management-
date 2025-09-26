@@ -1,6 +1,6 @@
-package com.ubaid.hotel_listing_service.config;
+package com.ubaid.room_listing_service.config;
 
-import com.ubaid.hotel_listing_service.service.JwtService;
+import com.ubaid.room_listing_service.service.JwtService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -41,8 +41,7 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/hotels/public/**").permitAll()
-                        .requestMatchers("/api/hotels/validate-ownership").permitAll()
+                        .requestMatchers("/api/rooms/public/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers("/v3/api-docs/**").permitAll()
                         .requestMatchers("/swagger-ui.html").permitAll()
@@ -50,10 +49,11 @@ public class SecurityConfig {
                         .requestMatchers("/swagger-resources/**").permitAll()
                         .requestMatchers("/webjars/**").permitAll()
                         .requestMatchers("/error").permitAll()
-                        .requestMatchers("/api/hotels/create").authenticated()
-                        .requestMatchers("/api/hotels/my-hotels").authenticated()
-                        .requestMatchers("/api/hotels/update/**").authenticated()
-                        .requestMatchers("/api/hotels/delete/**").authenticated()
+                        .requestMatchers("/api/rooms/create").authenticated()
+                        .requestMatchers("/api/rooms/my-rooms").authenticated()
+                        .requestMatchers("/api/rooms/hotel/**").authenticated()
+                        .requestMatchers("/api/rooms/update/**").authenticated()
+                        .requestMatchers("/api/rooms/delete/**").authenticated()
                         .anyRequest().permitAll()
                 )
                 .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
@@ -93,7 +93,6 @@ public class SecurityConfig {
                 String requestURI = request.getRequestURI();
                 log.debug("Processing request: {} {}", request.getMethod(), requestURI);
 
-                // Skip JWT processing for public endpoints
                 if (shouldNotFilter(request)) {
                     filterChain.doFilter(request, response);
                     return;
@@ -123,11 +122,9 @@ public class SecurityConfig {
                         String email = jwtService.extractEmail(token);
 
                         if (userId != null && email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                            // Set request attributes
                             request.setAttribute("userId", userId);
                             request.setAttribute("userEmail", email);
 
-                            // Create Spring Security Authentication object
                             UsernamePasswordAuthenticationToken authToken =
                                     new UsernamePasswordAuthenticationToken(
                                             userId,
@@ -157,9 +154,8 @@ public class SecurityConfig {
             @Override
             protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
                 String path = request.getRequestURI();
-                return path.startsWith("/api/hotels/public/") ||
+                return path.startsWith("/api/rooms/public/") ||
                         path.startsWith("/actuator/") ||
-                        path.equals("/api/hotels/validate-ownership") ||
                         path.startsWith("/v3/api-docs") ||
                         path.startsWith("/swagger-ui") ||
                         path.startsWith("/swagger-resources") ||
@@ -177,10 +173,11 @@ public class SecurityConfig {
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
-        configuration.setMaxAge(3600L); // Cache preflight requests for 1 hour
+        configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
 }
+

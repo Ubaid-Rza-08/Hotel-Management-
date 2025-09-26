@@ -3,13 +3,14 @@
   <component name="CompilerConfiguration">
     <annotationProcessing>
       <profile default="true" name="Default" enabled="true" />
-      <profile name="Annotation profile for hotel-listing-service" enabled="true">
+      <profile name="Annotation profile for room-listing-service" enabled="true">
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <processorPath useClasspath="false">
           <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.40/lombok-1.18.40.jar" />
         </processorPath>
+        <module name="room-listing-service" />
         <module name="hotel-listing-service" />
         <module name="Auth" />
       </profile>
@@ -19,6 +20,7 @@
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
       <module name="Auth" options="-parameters" />
       <module name="hotel-listing-service" options="-parameters" />
+      <module name="room-listing-service" options="-parameters" />
     </option>
   </component>
 </project>

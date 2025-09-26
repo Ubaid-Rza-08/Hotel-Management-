@@ -1,6 +1,6 @@
-package com.ubaid.hotel_listing_service.config;
+package com.ubaid.room_listing_service.config;
 
-import com.ubaid.hotel_listing_service.service.JwtService;
+import com.ubaid.room_listing_service.service.JwtService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -22,13 +22,11 @@ public class AuthenticationInterceptor implements HandlerInterceptor {
 
         log.debug("Authentication interceptor processing: {} {}", method, requestURI);
 
-        // Skip authentication for public endpoints
         if (isPublicEndpoint(requestURI)) {
             log.debug("Public endpoint, skipping authentication: {}", requestURI);
             return true;
         }
 
-        // Skip authentication for OPTIONS requests
         if ("OPTIONS".equalsIgnoreCase(method)) {
             return true;
         }
@@ -65,7 +63,6 @@ public class AuthenticationInterceptor implements HandlerInterceptor {
                 return false;
             }
 
-            // Set user information in request attributes
             request.setAttribute("userId", userId);
             request.setAttribute("userEmail", email);
 
@@ -80,10 +77,9 @@ public class AuthenticationInterceptor implements HandlerInterceptor {
     }
 
     private boolean isPublicEndpoint(String uri) {
-        return uri.startsWith("/api/hotels/public/") ||
+        return uri.startsWith("/api/rooms/public/") ||
                 uri.startsWith("/actuator/") ||
                 uri.startsWith("/v3/api-docs") ||
-                uri.equals("/api/hotels/validate-ownership") ||
                 uri.startsWith("/swagger-ui") ||
                 uri.startsWith("/swagger-resources") ||
                 uri.startsWith("/webjars/") ||
@@ -106,3 +102,4 @@ public class AuthenticationInterceptor implements HandlerInterceptor {
         }
     }
 }
+

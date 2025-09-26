@@ -37,6 +37,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 path.startsWith("/webjars/swagger-ui") ||
                 path.startsWith("/api/v1/auth/") ||
                 path.startsWith("/api/v1/public/") ||
+                path.matches("/api/v1/users/.+/validate") ||
                 path.startsWith("/oauth2/") ||
                 path.startsWith("/login") ||
                 path.equals("/error") ||
