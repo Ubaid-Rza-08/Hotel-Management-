@@ -1,0 +1,46 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: booking-service
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            connectTimeout: 5000
+            readTimeout: 5000
+            loggerLevel: full
+
+firebase:
+  service-account-key-path: ${FIREBASE_KEY_PATH}
+  project-id: ${FIREBASE_PROJECT_ID}
+
+jwt:
+  secret: ${JWT_SECRET:default-super-secret-key}
+
+auth-service:
+  url: http://localhost:8080
+hotel-service:
+  url: http://localhost:8082
+room-service:
+  url: http://localhost:8083
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+logging:
+  level:
+    com.ubaid.booking_service: INFO
+    com.ubaid.booking_service.config.SecurityConfig: DEBUG
+    com.ubaid.booking_service.service.JwtService: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.security.web: DEBUG
+    org.springframework.web.servlet.mvc.method.annotation: DEBUG
+    org.springframework.cloud.openfeign: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"

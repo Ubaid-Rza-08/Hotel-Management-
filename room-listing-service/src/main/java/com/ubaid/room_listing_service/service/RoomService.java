@@ -262,7 +262,27 @@ public class RoomService {
         try {
             Room room = roomRepository.findById(roomId)
                     .orElseThrow(() -> new RoomException("Room not found"));
-            return convertToResponseDTO(room);
+
+            // CRITICAL: Add logging to verify hotelId exists in the entity
+            log.info("Retrieved room from database - roomId: {}, hotelId: {}, roomName: {}",
+                    room.getRoomId(), room.getHotelId(), room.getRoomName());
+
+            if (room.getHotelId() == null) {
+                log.error("CRITICAL: Room {} has null hotelId in database!", room.getRoomId());
+            }
+
+            RoomResponseDTO response = convertToResponseDTO(room);
+
+            // Verify the DTO has hotelId
+            log.info("Converted to DTO - roomId: {}, hotelId: {}",
+                    response.getRoomId(), response.getHotelId());
+
+            if (response.getHotelId() == null) {
+                log.error("CRITICAL: RoomResponseDTO has null hotelId after conversion!");
+            }
+
+            return response;
+
         } catch (Exception e) {
             log.error("Error retrieving room by ID {}: {}", roomId, e.getMessage());
             throw new RoomException("Failed to retrieve room: " + e.getMessage());

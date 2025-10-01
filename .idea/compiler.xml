@@ -3,7 +3,7 @@
   <component name="CompilerConfiguration">
     <annotationProcessing>
       <profile default="true" name="Default" enabled="true" />
-      <profile name="Annotation profile for room-listing-service" enabled="true">
+      <profile name="Annotation profile for booking-service" enabled="true">
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
@@ -12,6 +12,7 @@
         </processorPath>
         <module name="room-listing-service" />
         <module name="hotel-listing-service" />
+        <module name="booking-service" />
         <module name="Auth" />
       </profile>
     </annotationProcessing>
@@ -19,6 +20,7 @@
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
       <module name="Auth" options="-parameters" />
+      <module name="booking-service" options="-parameters" />
       <module name="hotel-listing-service" options="-parameters" />
       <module name="room-listing-service" options="-parameters" />
     </option>

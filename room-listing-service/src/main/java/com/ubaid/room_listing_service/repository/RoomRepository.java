@@ -39,10 +39,36 @@ public class RoomRepository {
             DocumentSnapshot document = docRef.get().get();
 
             if (document.exists()) {
+                // Log raw Firestore data first
+                log.info("Firestore raw data for {}: hotelId={}, roomName={}, all keys={}",
+                        roomId,
+                        document.get("hotelId"),
+                        document.get("roomName"),
+                        document.getData().keySet());
+
                 Room room = document.toObject(Room.class);
+
+                if (room != null) {
+                    log.info("After toObject() - roomId: {}, hotelId: {}",
+                            room.getRoomId(), room.getHotelId());
+
+                    // CRITICAL FIX: If hotelId is still null, set it manually
+                    if (room.getHotelId() == null && document.contains("hotelId")) {
+                        String hotelIdFromDoc = document.getString("hotelId");
+                        log.warn("HotelId was null after toObject(), manually setting from document: {}",
+                                hotelIdFromDoc);
+                        room.setHotelId(hotelIdFromDoc);
+                    }
+
+                    if (room.getHotelId() == null) {
+                        log.error("CRITICAL: Room {} still has null hotelId after manual fix!", roomId);
+                    }
+                }
+
                 return Optional.of(room);
             }
             return Optional.empty();
+
         } catch (InterruptedException | ExecutionException e) {
             log.error("Error finding room by ID {}: {}", roomId, e.getMessage());
             throw new RoomException("Failed to find room: " + e.getMessage());

@@ -2,6 +2,7 @@ package com.ubaid.hotel_listing_service.service;
 
 import com.ubaid.hotel_listing_service.dto.HotelRequestDTO;
 import com.ubaid.hotel_listing_service.dto.HotelResponseDTO;
+import com.ubaid.hotel_listing_service.entity.Amenity;
 import com.ubaid.hotel_listing_service.entity.Hotel;
 import com.ubaid.hotel_listing_service.exception.HotelException;
 import com.ubaid.hotel_listing_service.repository.HotelRepository;
@@ -11,11 +12,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.time.LocalTime;
+import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -245,11 +245,32 @@ public class HotelService {
 
     public HotelResponseDTO getHotelById(String hotelId) {
         try {
+            log.info("Fetching hotel by ID: {}", hotelId);
+
             Hotel hotel = hotelRepository.findById(hotelId)
-                    .orElseThrow(() -> new HotelException("Hotel not found"));
-            return convertToResponseDTO(hotel);
+                    .orElseThrow(() -> new HotelException("Hotel not found with ID: " + hotelId));
+
+            // Log retrieved hotel details
+            log.info("Hotel found - ID: {}, Name: {}, Location: {}, UserId: {}",
+                    hotel.getHotelId(),
+                    hotel.getHotelName(),
+                    hotel.getHotelLocation(),
+                    hotel.getUserId());
+
+            HotelResponseDTO response = convertToResponseDTO(hotel);
+
+            // Verify conversion
+            log.info("Converted to DTO - ID: {}, Name: {}",
+                    response.getHotelId(),
+                    response.getHotelName());
+
+            return response;
+
+        } catch (HotelException e) {
+            log.error("Hotel not found: {}", hotelId);
+            throw e;
         } catch (Exception e) {
-            log.error("Error retrieving hotel by ID {}: {}", hotelId, e.getMessage());
+            log.error("Error retrieving hotel by ID {}: {}", hotelId, e.getMessage(), e);
             throw new HotelException("Failed to retrieve hotel: " + e.getMessage());
         }
     }
@@ -316,21 +337,176 @@ public class HotelService {
     }
 
     private HotelResponseDTO convertToResponseDTO(Hotel hotel) {
-        return HotelResponseDTO.builder()
-                .hotelId(hotel.getHotelId())
-                .userId(hotel.getUserId())
-                .hotelName(hotel.getHotelName())
-                .rating(hotel.getRating())
-                .hotelLocation(hotel.getHotelLocation())
-                .locationLink(hotel.getLocationLink())
-                .hotelImages(hotel.getHotelImages())
-                .googleMapScreenshot(hotel.getGoogleMapScreenshot())
-                .descriptions(hotel.getDescriptions())
-                .amenities(hotel.getAmenities())
-                .checkinTime(hotel.getCheckinTime())
-                .checkoutTime(hotel.getCheckoutTime())
-                .createdAt(hotel.getCreatedAt())
-                .updatedAt(hotel.getUpdatedAt())
-                .build();
+        try {
+            HotelResponseDTO dto = HotelResponseDTO.builder()
+                    .hotelId(hotel.getHotelId())
+                    .userId(hotel.getUserId())
+                    .hotelName(hotel.getHotelName())
+                    .rating(hotel.getRating())
+                    .hotelLocation(hotel.getHotelLocation())
+                    .locationLink(hotel.getLocationLink())
+                    .hotelImages(hotel.getHotelImages())
+                    .googleMapScreenshot(hotel.getGoogleMapScreenshot())
+                    .descriptions(hotel.getDescriptions())
+                    .amenities(hotel.getAmenities())
+                    .checkinTime(hotel.getCheckinTime())
+                    .checkoutTime(hotel.getCheckoutTime())
+                    .createdAt(hotel.getCreatedAt())
+                    .updatedAt(hotel.getUpdatedAt())
+                    .build();
+
+            log.debug("Successfully converted hotel {} to DTO", hotel.getHotelId());
+            return dto;
+
+        } catch (Exception e) {
+            log.error("Error converting hotel to DTO: {}", e.getMessage(), e);
+            throw new HotelException("Failed to convert hotel to response: " + e.getMessage());
+        }
+    }
+
+    // Add these methods to your existing HotelService class
+
+    /**
+     * Search hotels by location with check-in and check-out time filtering.
+     *
+     * @param location The location to search for
+     * @param checkInTime The requested check-in time (optional)
+     * @param checkOutTime The requested check-out time (optional)
+     * @return List of hotels matching the criteria
+     */
+    public List<HotelResponseDTO> searchHotelsByLocationAndTime(String location,
+                                                                LocalTime checkInTime,
+                                                                LocalTime checkOutTime) {
+        try {
+            if (location == null || location.trim().isEmpty()) {
+                throw new HotelException("Location parameter is required for search");
+            }
+
+            List<Hotel> hotels = hotelRepository.findByLocationAndCheckInCheckOutTime(
+                    location.trim(), checkInTime, checkOutTime);
+
+            log.info("Found {} hotels for location: {} with check-in: {} and check-out: {}",
+                    hotels.size(), location, checkInTime, checkOutTime);
+
+            return hotels.stream()
+                    .map(this::convertToResponseDTO)
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("Error searching hotels by location and time: {}", e.getMessage());
+            throw new HotelException("Failed to search hotels by location and time: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Search hotels by location with flexible check-in and check-out time.
+     * Includes hotels within a specified time tolerance window.
+     *
+     * @param location The location to search for
+     * @param checkInTime The requested check-in time (optional)
+     * @param checkOutTime The requested check-out time (optional)
+     * @param toleranceMinutes The tolerance in minutes for time matching
+     * @return List of hotels matching the criteria
+     */
+    public List<HotelResponseDTO> searchHotelsByLocationAndTimeWithTolerance(String location,
+                                                                             LocalTime checkInTime,
+                                                                             LocalTime checkOutTime,
+                                                                             int toleranceMinutes) {
+        try {
+            if (location == null || location.trim().isEmpty()) {
+                throw new HotelException("Location parameter is required for search");
+            }
+
+            if (toleranceMinutes < 0) {
+                throw new HotelException("Tolerance minutes cannot be negative");
+            }
+
+            List<Hotel> hotels = hotelRepository.findByLocationAndCheckInCheckOutTimeWithTolerance(
+                    location.trim(), checkInTime, checkOutTime, toleranceMinutes);
+
+            log.info("Found {} hotels for location: {} with check-in: {} and check-out: {} (tolerance: {} minutes)",
+                    hotels.size(), location, checkInTime, checkOutTime, toleranceMinutes);
+
+            return hotels.stream()
+                    .map(this::convertToResponseDTO)
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("Error searching hotels by location and time with tolerance: {}", e.getMessage());
+            throw new HotelException("Failed to search hotels: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Advanced hotel search with multiple filters.
+     *
+     * @param location The location to search for (required)
+     * @param checkInTime The requested check-in time (optional)
+     * @param checkOutTime The requested check-out time (optional)
+     * @param minRating The minimum rating filter (optional)
+     * @param amenities List of required amenities (optional)
+     * @return List of hotels matching all criteria
+     */
+    public List<HotelResponseDTO> advancedHotelSearch(String location,
+                                                      LocalTime checkInTime,
+                                                      LocalTime checkOutTime,
+                                                      Double minRating,
+                                                      List<String> amenities) {
+        try {
+            if (location == null || location.trim().isEmpty()) {
+                throw new HotelException("Location parameter is required for search");
+            }
+
+            // Start with location and time-based search
+            List<Hotel> hotels = hotelRepository.findByLocationAndCheckInCheckOutTime(
+                    location.trim(), checkInTime, checkOutTime);
+
+            // Apply additional filters
+            Stream<Hotel> hotelStream = hotels.stream();
+
+            // Filter by minimum rating
+            if (minRating != null) {
+                hotelStream = hotelStream.filter(hotel ->
+                        hotel.getRating() != null && hotel.getRating() >= minRating);
+            }
+
+            // Filter by required amenities
+            if (amenities != null && !amenities.isEmpty()) {
+                hotelStream = hotelStream.filter(hotel ->
+                        hasAllRequiredAmenities(hotel, amenities));
+            }
+
+            List<HotelResponseDTO> results = hotelStream
+                    .map(this::convertToResponseDTO)
+                    .collect(Collectors.toList());
+
+            log.info("Advanced search found {} hotels for location: {} with filters",
+                    results.size(), location);
+
+            return results;
+        } catch (Exception e) {
+            log.error("Error in advanced hotel search: {}", e.getMessage());
+            throw new HotelException("Failed to perform advanced search: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Helper method to check if a hotel has all required amenities.
+     *
+     * @param hotel The hotel to check
+     * @param requiredAmenities List of required amenity names
+     * @return true if hotel has all required amenities, false otherwise
+     */
+    private boolean hasAllRequiredAmenities(Hotel hotel, List<String> requiredAmenities) {
+        if (hotel.getAmenities() == null || hotel.getAmenities().isEmpty()) {
+            return false;
+        }
+
+        Set<String> hotelAmenityNames = hotel.getAmenities().stream()
+                .filter(Amenity::isAvailable)
+                .map(amenity -> amenity.getName().toLowerCase())
+                .collect(Collectors.toSet());
+
+        return requiredAmenities.stream()
+                .map(String::toLowerCase)
+                .allMatch(hotelAmenityNames::contains);
     }
 }

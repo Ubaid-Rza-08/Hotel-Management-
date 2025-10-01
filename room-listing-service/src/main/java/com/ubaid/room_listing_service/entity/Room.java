@@ -1,15 +1,14 @@
 package com.ubaid.room_listing_service.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.cloud.firestore.annotation.PropertyName;  // ADD THIS IMPORT
 import com.ubaid.room_listing_service.enums.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.List;
 
 @Data
@@ -18,57 +17,89 @@ import java.util.List;
 @AllArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Room {
+
+    @PropertyName("roomId")  // For Firestore
+    @JsonProperty("roomId")  // For JSON
     private String roomId;
+
+    @PropertyName("userId")
+    @JsonProperty("userId")
     private String userId;
+
+    @PropertyName("hotelId")  // CRITICAL: This is what you're missing!
+    @JsonProperty("hotelId")
     private String hotelId;
+
+    @PropertyName("roomName")
+    @JsonProperty("roomName")
     private String roomName;
 
-    // Room Type
+    @PropertyName("roomType")
     private RoomType roomType;
 
-    // Bed Details
+    @PropertyName("bedAvailable")
     private BedType bedAvailable;
 
-    // Room Images (max 5)
+    @PropertyName("roomImages")
     private List<String> roomImages;
 
-    // Basic Services
+    @PropertyName("breakfastIncluded")
     private Boolean breakfastIncluded;
+
+    @PropertyName("parkingAvailable")
     private Boolean parkingAvailable;
+
+    @PropertyName("languages")
     private List<String> languages;
 
-    // Time Details - Use String format for Firestore (HH:mm:ss format)
-    private String checkinTime;  // Changed from LocalTime to String
-    private String checkoutTime; // Changed from LocalTime to String
+    @PropertyName("checkinTime")
+    private String checkinTime;
 
-    // Policies
+    @PropertyName("checkoutTime")
+    private String checkoutTime;
+
+    @PropertyName("childrenAllowed")
     private Boolean childrenAllowed;
+
+    @PropertyName("petAllowed")
     private Boolean petAllowed;
 
-    // Bathroom
+    @PropertyName("bathroomType")
     private BathroomType bathroomType;
+
+    @PropertyName("bathroomItems")
     private List<BathroomItem> bathroomItems;
 
-    // Property Type
+    @PropertyName("propertyType")
     private PropertyType propertyType;
 
-    // Location
+    @PropertyName("locationLink")
     private String locationLink;
 
-    // Amenities
+    @PropertyName("generalAmenities")
     private List<GeneralAmenity> generalAmenities;
+
+    @PropertyName("outdoorViews")
     private List<OutdoorView> outdoorViews;
+
+    @PropertyName("foodDrinkItems")
     private List<FoodDrinkItem> foodDrinkItems;
 
-    // Pricing
+    @PropertyName("basePrice")
     private Double basePrice;
+
+    @PropertyName("priceForOneGuest")
     private Double priceForOneGuest;
+
+    @PropertyName("priceForTwoGuest")
     private Double priceForTwoGuest;
+
+    @PropertyName("numberOfRooms")
     private Integer numberOfRooms;
 
-    // Invoice Details
+    @PropertyName("invoiceDetails")
     private InvoiceDetails invoiceDetails;
 
-    // Meta - Removed createdAt and updatedAt as requested
+    @PropertyName("isActive")
     private Boolean isActive;
 }

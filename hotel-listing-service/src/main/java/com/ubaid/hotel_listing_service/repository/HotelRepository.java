@@ -6,6 +6,7 @@ import com.google.cloud.firestore.*;
 import com.ubaid.hotel_listing_service.entity.Amenity;
 import com.ubaid.hotel_listing_service.entity.Hotel;
 import com.ubaid.hotel_listing_service.entity.HotelDescription;
+import com.ubaid.hotel_listing_service.exception.HotelException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
@@ -55,16 +56,27 @@ public class HotelRepository {
     public Optional<Hotel> findById(String hotelId) {
         try {
             DocumentReference docRef = firestore.collection(COLLECTION_NAME).document(hotelId);
-            ApiFuture<DocumentSnapshot> future = docRef.get();
-            DocumentSnapshot document = future.get();
+            DocumentSnapshot document = docRef.get().get();
 
             if (document.exists()) {
-                return Optional.of(convertMapToEntity(document.getData(), document.getId()));
+                // Log what we're getting from Firestore
+                log.debug("Retrieved hotel document with fields: {}", document.getData().keySet());
+
+                Hotel hotel = convertMapToEntity(document.getData(), document.getId());
+
+                // Verify critical fields
+                log.info("Converted hotel - ID: {}, Name: {}, Location: {}",
+                        hotel.getHotelId(), hotel.getHotelName(), hotel.getHotelLocation());
+
+                return Optional.of(hotel);
             }
+
+            log.warn("Hotel not found: {}", hotelId);
             return Optional.empty();
+
         } catch (InterruptedException | ExecutionException e) {
-            log.error("Error finding hotel by ID: {}", e.getMessage());
-            return Optional.empty();
+            log.error("Error finding hotel by ID {}: {}", hotelId, e.getMessage());
+            throw new HotelException("Failed to find hotel: " + e.getMessage());
         }
     }
 
@@ -99,14 +111,16 @@ public class HotelRepository {
 
     public List<Hotel> findByLocationContaining(String location) {
         try {
-            Query query = firestore.collection(COLLECTION_NAME)
-                    .whereGreaterThanOrEqualTo("hotelLocation", location)
-                    .whereLessThanOrEqualTo("hotelLocation", location + "\uf8ff");
-            ApiFuture<QuerySnapshot> querySnapshot = query.get();
+            // Get all hotels and filter in-memory for better partial matching
+            ApiFuture<QuerySnapshot> querySnapshot = firestore.collection(COLLECTION_NAME).get();
             List<QueryDocumentSnapshot> documents = querySnapshot.get().getDocuments();
+
+            String searchTerm = location.toLowerCase().trim();
 
             return documents.stream()
                     .map(doc -> convertMapToEntity(doc.getData(), doc.getId()))
+                    .filter(hotel -> hotel.getHotelLocation() != null &&
+                            hotel.getHotelLocation().toLowerCase().contains(searchTerm))
                     .collect(Collectors.toList());
         } catch (InterruptedException | ExecutionException e) {
             log.error("Error searching hotels by location: {}", e.getMessage());
@@ -133,6 +147,162 @@ public class HotelRepository {
             log.error("Error searching hotels by name: {}", e.getMessage());
             return Collections.emptyList();
         }
+    }
+
+    /**
+     * Find hotels by location with check-in and check-out time filtering.
+     *
+     * @param location The location to search for
+     * @param requestedCheckIn The requested check-in time (can be null)
+     * @param requestedCheckOut The requested check-out time (can be null)
+     * @return List of hotels matching the criteria
+     */
+    public List<Hotel> findByLocationAndCheckInCheckOutTime(String location,
+                                                            LocalTime requestedCheckIn,
+                                                            LocalTime requestedCheckOut) {
+        try {
+            // Get all hotels and filter in-memory for better partial matching
+            ApiFuture<QuerySnapshot> querySnapshot = firestore.collection(COLLECTION_NAME).get();
+            List<QueryDocumentSnapshot> documents = querySnapshot.get().getDocuments();
+
+            String searchTerm = location.toLowerCase().trim();
+
+            // Filter by location first
+            List<Hotel> hotels = documents.stream()
+                    .map(doc -> convertMapToEntity(doc.getData(), doc.getId()))
+                    .filter(hotel -> hotel.getHotelLocation() != null &&
+                            hotel.getHotelLocation().toLowerCase().contains(searchTerm))
+                    .collect(Collectors.toList());
+
+            // If no time constraints, return all hotels matching location
+            if (requestedCheckIn == null && requestedCheckOut == null) {
+                return hotels;
+            }
+
+            // Filter by check-in/check-out times
+            return hotels.stream()
+                    .filter(hotel -> isTimeCompatible(hotel, requestedCheckIn, requestedCheckOut))
+                    .collect(Collectors.toList());
+
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("Error searching hotels by location and time: {}", e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    /**
+     * Find hotels by location with flexible check-in and check-out time.
+     * Includes hotels within a time tolerance window.
+     *
+     * @param location The location to search for
+     * @param requestedCheckIn The requested check-in time
+     * @param requestedCheckOut The requested check-out time
+     * @param toleranceMinutes The tolerance in minutes for time matching (e.g., 60 for ±1 hour)
+     * @return List of hotels matching the criteria
+     */
+    public List<Hotel> findByLocationAndCheckInCheckOutTimeWithTolerance(String location,
+                                                                         LocalTime requestedCheckIn,
+                                                                         LocalTime requestedCheckOut,
+                                                                         int toleranceMinutes) {
+        try {
+            // Get all hotels and filter in-memory
+            ApiFuture<QuerySnapshot> querySnapshot = firestore.collection(COLLECTION_NAME).get();
+            List<QueryDocumentSnapshot> documents = querySnapshot.get().getDocuments();
+
+            String searchTerm = location.toLowerCase().trim();
+
+            // Filter by location first
+            List<Hotel> hotels = documents.stream()
+                    .map(doc -> convertMapToEntity(doc.getData(), doc.getId()))
+                    .filter(hotel -> hotel.getHotelLocation() != null &&
+                            hotel.getHotelLocation().toLowerCase().contains(searchTerm))
+                    .collect(Collectors.toList());
+
+            // If no time constraints, return all hotels matching location
+            if (requestedCheckIn == null && requestedCheckOut == null) {
+                return hotels;
+            }
+
+            // Filter by check-in/check-out times with tolerance
+            return hotels.stream()
+                    .filter(hotel -> isTimeCompatibleWithTolerance(hotel, requestedCheckIn,
+                            requestedCheckOut, toleranceMinutes))
+                    .collect(Collectors.toList());
+
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("Error searching hotels by location and time with tolerance: {}", e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    /**
+     * Helper method to check if hotel times are compatible with requested times.
+     *
+     * @param hotel The hotel to check
+     * @param requestedCheckIn The requested check-in time
+     * @param requestedCheckOut The requested check-out time
+     * @return true if times are compatible, false otherwise
+     */
+    private boolean isTimeCompatible(Hotel hotel, LocalTime requestedCheckIn, LocalTime requestedCheckOut) {
+        // If hotel doesn't have check-in/out times set, consider it available
+        if (hotel.getCheckinTime() == null && hotel.getCheckoutTime() == null) {
+            return true;
+        }
+
+        boolean checkInCompatible = true;
+        boolean checkOutCompatible = true;
+
+        // Check if requested check-in is after or equal to hotel's check-in time
+        if (requestedCheckIn != null && hotel.getCheckinTime() != null) {
+            checkInCompatible = !requestedCheckIn.isBefore(hotel.getCheckinTime());
+        }
+
+        // Check if requested check-out is before or equal to hotel's check-out time
+        if (requestedCheckOut != null && hotel.getCheckoutTime() != null) {
+            checkOutCompatible = !requestedCheckOut.isAfter(hotel.getCheckoutTime());
+        }
+
+        return checkInCompatible && checkOutCompatible;
+    }
+
+    /**
+     * Helper method to check if hotel times are compatible with requested times (with tolerance).
+     *
+     * @param hotel The hotel to check
+     * @param requestedCheckIn The requested check-in time
+     * @param requestedCheckOut The requested check-out time
+     * @param toleranceMinutes The tolerance window in minutes
+     * @return true if times are compatible within tolerance, false otherwise
+     */
+    private boolean isTimeCompatibleWithTolerance(Hotel hotel, LocalTime requestedCheckIn,
+                                                  LocalTime requestedCheckOut, int toleranceMinutes) {
+        // If hotel doesn't have check-in/out times set, consider it available
+        if (hotel.getCheckinTime() == null && hotel.getCheckoutTime() == null) {
+            return true;
+        }
+
+        boolean checkInCompatible = true;
+        boolean checkOutCompatible = true;
+
+        // Check check-in time with tolerance
+        if (requestedCheckIn != null && hotel.getCheckinTime() != null) {
+            LocalTime earliestAcceptableCheckIn = hotel.getCheckinTime().minusMinutes(toleranceMinutes);
+            LocalTime latestAcceptableCheckIn = hotel.getCheckinTime().plusMinutes(toleranceMinutes);
+
+            checkInCompatible = !requestedCheckIn.isBefore(earliestAcceptableCheckIn) &&
+                    !requestedCheckIn.isAfter(latestAcceptableCheckIn.plusHours(2)); // Allow 2 hours late check-in
+        }
+
+        // Check check-out time with tolerance
+        if (requestedCheckOut != null && hotel.getCheckoutTime() != null) {
+            LocalTime earliestAcceptableCheckOut = hotel.getCheckoutTime().minusMinutes(toleranceMinutes + 60); // Allow 1 hour early checkout
+            LocalTime latestAcceptableCheckOut = hotel.getCheckoutTime().plusMinutes(toleranceMinutes);
+
+            checkOutCompatible = !requestedCheckOut.isBefore(earliestAcceptableCheckOut) &&
+                    !requestedCheckOut.isAfter(latestAcceptableCheckOut);
+        }
+
+        return checkInCompatible && checkOutCompatible;
     }
 
     public void delete(Hotel hotel) {

@@ -1,20 +1,23 @@
 package com.ubaid.hotel_listing_service.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ubaid.hotel_listing_service.dto.ApiResponse;
-import com.ubaid.hotel_listing_service.dto.HotelRequestDTO;
-import com.ubaid.hotel_listing_service.dto.HotelResponseDTO;
+import com.ubaid.hotel_listing_service.dto.*;
 import com.ubaid.hotel_listing_service.service.HotelService;
 import com.ubaid.hotel_listing_service.service.JwtService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 
 @RestController
 @RequestMapping("/api/hotels")
@@ -217,6 +220,153 @@ public class HotelController {
             log.error("Error validating hotel ownership for userId: {} and hotelId: {}",
                     userId, hotelId, e);
             return ResponseEntity.status(500).body(false);
+        }
+    }
+
+    // Add these endpoints to your existing HotelController class
+
+    /**
+     * Search hotels by location with optional check-in and check-out time filtering.
+     */
+    @GetMapping("/public/search-by-location-and-time")
+    public ResponseEntity<ApiResponse<List<HotelResponseDTO>>> searchHotelsByLocationAndTime(
+            @RequestParam String location,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime checkInTime,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime checkOutTime) {
+        try {
+            List<HotelResponseDTO> hotels = hotelService.searchHotelsByLocationAndTime(
+                    location, checkInTime, checkOutTime);
+
+            String message = String.format("Found %d hotels for location: %s", hotels.size(), location);
+            return ResponseEntity.ok(ApiResponse.success(message, hotels));
+        } catch (Exception e) {
+            log.error("Error searching hotels by location and time: {}", e.getMessage());
+            return ResponseEntity.status(500)
+                    .body(ApiResponse.error("Failed to search hotels: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Search hotels by location with time tolerance for flexibility.
+     */
+    @GetMapping("/public/search-by-location-and-time-flexible")
+    public ResponseEntity<ApiResponse<List<HotelResponseDTO>>> searchHotelsByLocationAndTimeWithTolerance(
+            @RequestParam String location,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime checkInTime,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime checkOutTime,
+            @RequestParam(defaultValue = "60") int toleranceMinutes) {
+        try {
+            List<HotelResponseDTO> hotels = hotelService.searchHotelsByLocationAndTimeWithTolerance(
+                    location, checkInTime, checkOutTime, toleranceMinutes);
+
+            String message = String.format("Found %d hotels for location: %s with %d minutes tolerance",
+                    hotels.size(), location, toleranceMinutes);
+            return ResponseEntity.ok(ApiResponse.success(message, hotels));
+        } catch (Exception e) {
+            log.error("Error searching hotels with time tolerance: {}", e.getMessage());
+            return ResponseEntity.status(500)
+                    .body(ApiResponse.error("Failed to search hotels: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Advanced hotel search with multiple filters.
+     */
+    @GetMapping("/public/advanced-search")
+    public ResponseEntity<ApiResponse<List<HotelResponseDTO>>> advancedHotelSearch(
+            @RequestParam String location,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime checkInTime,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime checkOutTime,
+            @RequestParam(required = false) Double minRating,
+            @RequestParam(required = false) List<String> amenities) {
+        try {
+            // Validate rating if provided
+            if (minRating != null && (minRating < 0 || minRating > 5)) {
+                return ResponseEntity.status(400)
+                        .body(ApiResponse.error("Rating must be between 0 and 5"));
+            }
+
+            List<HotelResponseDTO> hotels = hotelService.advancedHotelSearch(
+                    location, checkInTime, checkOutTime, minRating, amenities);
+
+            String message = String.format("Advanced search found %d hotels", hotels.size());
+            return ResponseEntity.ok(ApiResponse.success(message, hotels));
+        } catch (Exception e) {
+            log.error("Error in advanced hotel search: {}", e.getMessage());
+            return ResponseEntity.status(500)
+                    .body(ApiResponse.error("Failed to perform search: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Search hotels with date and time range.
+     * This endpoint is useful for searches with specific date-time requirements.
+     */
+    @PostMapping("/public/search-with-datetime-range")
+    public ResponseEntity<ApiResponse<List<HotelResponseDTO>>> searchHotelsWithDateTimeRange(
+            @RequestBody HotelSearchRequest searchRequest) {
+        try {
+            // Validate search request
+            if (searchRequest.getLocation() == null || searchRequest.getLocation().trim().isEmpty()) {
+                return ResponseEntity.status(400)
+                        .body(ApiResponse.error("Location is required"));
+            }
+
+            // Extract times from the request
+            LocalTime checkInTime = searchRequest.getCheckInDateTime() != null ?
+                    searchRequest.getCheckInDateTime().toLocalTime() : null;
+            LocalTime checkOutTime = searchRequest.getCheckOutDateTime() != null ?
+                    searchRequest.getCheckOutDateTime().toLocalTime() : null;
+
+            List<HotelResponseDTO> hotels = hotelService.searchHotelsByLocationAndTime(
+                    searchRequest.getLocation(), checkInTime, checkOutTime);
+
+            // Additional filtering by date if needed (for future implementation)
+            // This could include availability checking based on dates
+
+            String message = String.format("Found %d hotels matching your criteria", hotels.size());
+            return ResponseEntity.ok(ApiResponse.success(message, hotels));
+        } catch (Exception e) {
+            log.error("Error searching hotels with datetime range: {}", e.getMessage());
+            return ResponseEntity.status(500)
+                    .body(ApiResponse.error("Failed to search hotels: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Get available time slots for hotels at a specific location.
+     * This endpoint returns all unique check-in and check-out times available.
+     */
+    @GetMapping("/public/available-time-slots")
+    public ResponseEntity<ApiResponse<TimeSlotResponse>> getAvailableTimeSlots(
+            @RequestParam String location) {
+        try {
+            List<HotelResponseDTO> hotels = hotelService.searchHotels(location);
+
+            Set<LocalTime> availableCheckInTimes = new TreeSet<>();
+            Set<LocalTime> availableCheckOutTimes = new TreeSet<>();
+
+            for (HotelResponseDTO hotel : hotels) {
+                if (hotel.getCheckinTime() != null) {
+                    availableCheckInTimes.add(hotel.getCheckinTime());
+                }
+                if (hotel.getCheckoutTime() != null) {
+                    availableCheckOutTimes.add(hotel.getCheckoutTime());
+                }
+            }
+
+            TimeSlotResponse response = TimeSlotResponse.builder()
+                    .location(location)
+                    .availableCheckInTimes(new ArrayList<>(availableCheckInTimes))
+                    .availableCheckOutTimes(new ArrayList<>(availableCheckOutTimes))
+                    .totalHotels(hotels.size())
+                    .build();
+
+            return ResponseEntity.ok(ApiResponse.success("Available time slots retrieved", response));
+        } catch (Exception e) {
+            log.error("Error getting available time slots: {}", e.getMessage());
+            return ResponseEntity.status(500)
+                    .body(ApiResponse.error("Failed to get time slots: " + e.getMessage()));
         }
     }
 }

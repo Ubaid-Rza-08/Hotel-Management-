@@ -176,8 +176,19 @@ public class RoomController {
     @GetMapping("/public/{roomId}")
     public ResponseEntity<ApiResponse<RoomResponseDTO>> getRoomById(@PathVariable String roomId) {
         try {
+            log.info("Public endpoint called for roomId: {}", roomId);
+
             RoomResponseDTO room = roomService.getRoomById(roomId);
+
+            // Verification before sending response
+            if (room.getHotelId() == null) {
+                log.error("WARNING: Returning room with null hotelId to client!");
+            } else {
+                log.info("Returning room {} with hotelId: {}", room.getRoomId(), room.getHotelId());
+            }
+
             return ResponseEntity.ok(ApiResponse.success("Room retrieved successfully", room));
+
         } catch (Exception e) {
             log.error("Error retrieving room by ID: {}", e.getMessage());
             return ResponseEntity.status(500)
