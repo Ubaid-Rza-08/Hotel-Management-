@@ -14,6 +14,7 @@ import com.ubaid.booking_service.exception.BookingException;
 import com.ubaid.booking_service.repository.BookingRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -33,6 +34,7 @@ public class BookingService {
     private final AuthServiceClient authServiceClient;
     private final HotelServiceClient hotelServiceClient;
     private final RoomServiceClient roomServiceClient;
+    private final RoomAvailabilityService roomAvailabilityService;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
@@ -47,9 +49,6 @@ public class BookingService {
             // Validate room exists and belongs to hotel
             RoomResponseDTO room = validateRoom(request.getRoomId(), request.getHotelId());
 
-            // Validate availability
-            validateAvailability(request);
-
             // Parse dates and times
             LocalDate checkIn = LocalDate.parse(request.getCheckInDate(), DATE_FORMATTER);
             LocalDate checkOut = LocalDate.parse(request.getCheckOutDate(), DATE_FORMATTER);
@@ -60,6 +59,18 @@ public class BookingService {
             }
             if (checkOut.isBefore(checkIn) || checkOut.isEqual(checkIn)) {
                 throw new BookingException("Check-out date must be after check-in date");
+            }
+
+            // Check availability for the date range
+            boolean isAvailable = roomAvailabilityService.checkAvailability(
+                    request.getRoomId(),
+                    checkIn,
+                    checkOut,
+                    request.getNumberOfRooms()
+            );
+
+            if (!isAvailable) {
+                throw new BookingException("Not enough rooms available for the selected dates");
             }
 
             // Calculate nights and total amount
@@ -100,6 +111,15 @@ public class BookingService {
             // Save booking
             Booking savedBooking = bookingRepository.save(booking);
 
+            // Update room availability for the booked dates
+            roomAvailabilityService.updateAvailability(
+                    request.getRoomId(),
+                    checkIn,
+                    checkOut,
+                    request.getNumberOfRooms(),
+                    true // true means reducing availability
+            );
+
             log.info("Booking created successfully: {}", savedBooking.getBookingId());
 
             return convertToResponseDTO(savedBooking, hotel, room);
@@ -107,6 +127,97 @@ public class BookingService {
         } catch (Exception e) {
             log.error("Error creating booking: {}", e.getMessage());
             throw new BookingException("Failed to create booking: " + e.getMessage());
+        }
+    }
+
+    public BookingResponseDTO cancelBooking(String userId, String bookingId,
+                                            String cancellationReason, String authToken) {
+        try {
+            validateUser(userId, authToken);
+
+            Booking booking = bookingRepository.findById(bookingId)
+                    .orElseThrow(() -> new BookingException("Booking not found"));
+
+            if (!booking.getUserId().equals(userId)) {
+                throw new BookingException("Unauthorized: You can only cancel your own bookings");
+            }
+
+            if (booking.getBookingStatus() == BookingStatus.CANCELLED) {
+                throw new BookingException("Booking is already cancelled");
+            }
+
+            if (booking.getBookingStatus() == BookingStatus.COMPLETED) {
+                throw new BookingException("Cannot cancel a completed booking");
+            }
+
+            // Parse dates
+            LocalDate checkIn = LocalDate.parse(booking.getCheckInDate(), DATE_FORMATTER);
+            LocalDate checkOut = LocalDate.parse(booking.getCheckOutDate(), DATE_FORMATTER);
+
+            // Only restore availability if the booking dates haven't passed yet
+            if (checkOut.isAfter(LocalDate.now())) {
+                // Restore room availability for the cancelled booking
+                roomAvailabilityService.updateAvailability(
+                        booking.getRoomId(),
+                        checkIn,
+                        checkOut,
+                        booking.getNumberOfRooms(),
+                        false // false means restoring availability
+                );
+            }
+
+            // Update booking status
+            booking.setBookingStatus(BookingStatus.CANCELLED);
+            booking.setCancelledAt(LocalDateTime.now());
+            booking.setCancellationReason(cancellationReason);
+            booking.setUpdatedAt(LocalDateTime.now());
+
+            Booking updatedBooking = bookingRepository.save(booking);
+
+            log.info("Booking cancelled successfully: {}", bookingId);
+
+            HotelResponseDTO hotel = hotelServiceClient.getHotelById(booking.getHotelId()).getData();
+            RoomResponseDTO room = roomServiceClient.getRoomById(booking.getRoomId()).getData();
+
+            return convertToResponseDTO(updatedBooking, hotel, room);
+
+        } catch (Exception e) {
+            log.error("Error cancelling booking: {}", e.getMessage());
+            throw new BookingException("Failed to cancel booking: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Scheduled method to automatically update booking statuses
+     * Runs daily at 2 AM
+     */
+    @Scheduled(cron = "0 0 2 * * *")
+    public void updateBookingStatuses() {
+        try {
+            log.info("Starting scheduled booking status update");
+
+            LocalDate today = LocalDate.now();
+
+            // Find all confirmed bookings
+            List<Booking> confirmedBookings = bookingRepository.findByStatus(BookingStatus.CONFIRMED);
+
+            for (Booking booking : confirmedBookings) {
+                LocalDate checkOutDate = LocalDate.parse(booking.getCheckOutDate(), DATE_FORMATTER);
+
+                // If checkout date has passed, mark booking as completed
+                if (checkOutDate.isBefore(today)) {
+                    booking.setBookingStatus(BookingStatus.COMPLETED);
+                    booking.setUpdatedAt(LocalDateTime.now());
+                    bookingRepository.save(booking);
+
+                    log.info("Booking {} marked as completed", booking.getBookingId());
+                }
+            }
+
+            log.info("Completed scheduled booking status update");
+
+        } catch (Exception e) {
+            log.error("Error during scheduled booking status update: {}", e.getMessage());
         }
     }
 
@@ -151,47 +262,6 @@ public class BookingService {
         } catch (Exception e) {
             log.error("Error retrieving booking {}: {}", bookingId, e.getMessage());
             throw new BookingException("Failed to retrieve booking: " + e.getMessage());
-        }
-    }
-
-    public BookingResponseDTO cancelBooking(String userId, String bookingId,
-                                            String cancellationReason, String authToken) {
-        try {
-            validateUser(userId, authToken);
-
-            Booking booking = bookingRepository.findById(bookingId)
-                    .orElseThrow(() -> new BookingException("Booking not found"));
-
-            if (!booking.getUserId().equals(userId)) {
-                throw new BookingException("Unauthorized: You can only cancel your own bookings");
-            }
-
-            if (booking.getBookingStatus() == BookingStatus.CANCELLED) {
-                throw new BookingException("Booking is already cancelled");
-            }
-
-            if (booking.getBookingStatus() == BookingStatus.COMPLETED) {
-                throw new BookingException("Cannot cancel a completed booking");
-            }
-
-            // Update booking status
-            booking.setBookingStatus(BookingStatus.CANCELLED);
-            booking.setCancelledAt(LocalDateTime.now());
-            booking.setCancellationReason(cancellationReason);
-            booking.setUpdatedAt(LocalDateTime.now());
-
-            Booking updatedBooking = bookingRepository.save(booking);
-
-            log.info("Booking cancelled successfully: {}", bookingId);
-
-            HotelResponseDTO hotel = hotelServiceClient.getHotelById(booking.getHotelId()).getData();
-            RoomResponseDTO room = roomServiceClient.getRoomById(booking.getRoomId()).getData();
-
-            return convertToResponseDTO(updatedBooking, hotel, room);
-
-        } catch (Exception e) {
-            log.error("Error cancelling booking: {}", e.getMessage());
-            throw new BookingException("Failed to cancel booking: " + e.getMessage());
         }
     }
 
@@ -291,22 +361,6 @@ public class BookingService {
         } catch (Exception e) {
             log.error("Room validation failed for roomId {}: {}", roomId, e.getMessage());
             throw new BookingException("Room validation failed: " + e.getMessage());
-        }
-    }
-
-    private void validateAvailability(BookingRequestDTO request) {
-        List<Booking> existingBookings = bookingRepository.findByRoomIdAndDateRange(
-                request.getRoomId(), request.getCheckInDate(), request.getCheckOutDate());
-
-        int bookedRooms = existingBookings.stream()
-                .filter(b -> b.getBookingStatus() == BookingStatus.CONFIRMED)
-                .mapToInt(Booking::getNumberOfRooms)
-                .sum();
-
-        RoomResponseDTO room = roomServiceClient.getRoomById(request.getRoomId()).getData();
-
-        if (bookedRooms + request.getNumberOfRooms() > room.getNumberOfRooms()) {
-            throw new BookingException("Not enough rooms available for the selected dates");
         }
     }
 

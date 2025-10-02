@@ -2,14 +2,15 @@ package com.ubaid.room_listing_service.repository;
 
 import com.google.cloud.firestore.*;
 import com.ubaid.room_listing_service.entity.Room;
+import com.ubaid.room_listing_service.entity.RoomAvailability;
 import com.ubaid.room_listing_service.exception.RoomException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 
 @Repository
@@ -60,42 +61,15 @@ public class RoomRepository {
                         room.setHotelId(hotelIdFromDoc);
                     }
 
-                    if (room.getHotelId() == null) {
-                        log.error("CRITICAL: Room {} still has null hotelId after manual fix!", roomId);
-                    }
+                    room.setRoomId(roomId);
                 }
 
-                return Optional.of(room);
+                return Optional.ofNullable(room);
             }
             return Optional.empty();
-
         } catch (InterruptedException | ExecutionException e) {
             log.error("Error finding room by ID {}: {}", roomId, e.getMessage());
             throw new RoomException("Failed to find room: " + e.getMessage());
-        }
-    }
-
-    public List<Room> findByUserId(String userId) {
-        try {
-            Query query = firestore.collection(COLLECTION_NAME)
-                    .whereEqualTo("userId", userId)
-                    .whereEqualTo("isActive", true);
-
-            QuerySnapshot querySnapshot = query.get().get();
-            List<Room> rooms = new ArrayList<>();
-
-            for (DocumentSnapshot document : querySnapshot.getDocuments()) {
-                Room room = document.toObject(Room.class);
-                if (room != null) {
-                    rooms.add(room);
-                }
-            }
-
-            log.info("Found {} rooms for user: {}", rooms.size(), userId);
-            return rooms;
-        } catch (InterruptedException | ExecutionException e) {
-            log.error("Error finding rooms by user ID {}: {}", userId, e.getMessage());
-            throw new RoomException("Failed to find rooms by user: " + e.getMessage());
         }
     }
 
@@ -111,6 +85,7 @@ public class RoomRepository {
             for (DocumentSnapshot document : querySnapshot.getDocuments()) {
                 Room room = document.toObject(Room.class);
                 if (room != null) {
+                    room.setRoomId(document.getId());
                     rooms.add(room);
                 }
             }
@@ -118,31 +93,7 @@ public class RoomRepository {
             log.info("Found {} rooms for hotel: {}", rooms.size(), hotelId);
             return rooms;
         } catch (InterruptedException | ExecutionException e) {
-            log.error("Error finding rooms by hotel ID {}: {}", hotelId, e.getMessage());
-            throw new RoomException("Failed to find rooms by hotel: " + e.getMessage());
-        }
-    }
-
-    public List<Room> findByUserIdAndHotelId(String userId, String hotelId) {
-        try {
-            Query query = firestore.collection(COLLECTION_NAME)
-                    .whereEqualTo("userId", userId)
-                    .whereEqualTo("hotelId", hotelId)
-                    .whereEqualTo("isActive", true);
-
-            QuerySnapshot querySnapshot = query.get().get();
-            List<Room> rooms = new ArrayList<>();
-
-            for (DocumentSnapshot document : querySnapshot.getDocuments()) {
-                Room room = document.toObject(Room.class);
-                if (room != null) {
-                    rooms.add(room);
-                }
-            }
-
-            return rooms;
-        } catch (InterruptedException | ExecutionException e) {
-            log.error("Error finding rooms by user {} and hotel {}: {}", userId, hotelId, e.getMessage());
+            log.error("Error finding rooms by hotelId {}: {}", hotelId, e.getMessage());
             throw new RoomException("Failed to find rooms: " + e.getMessage());
         }
     }
@@ -158,6 +109,7 @@ public class RoomRepository {
             for (DocumentSnapshot document : querySnapshot.getDocuments()) {
                 Room room = document.toObject(Room.class);
                 if (room != null) {
+                    room.setRoomId(document.getId());
                     rooms.add(room);
                 }
             }
@@ -203,6 +155,29 @@ public class RoomRepository {
         } catch (InterruptedException | ExecutionException e) {
             log.error("Error searching rooms by name {}: {}", roomName, e.getMessage());
             throw new RoomException("Failed to search rooms: " + e.getMessage());
+        }
+    }
+    public List<Room> findByUserId(String userId) {
+        try {
+            Query query = firestore.collection(COLLECTION_NAME)
+                    .whereEqualTo("userId", userId)
+                    .whereEqualTo("isActive", true);
+
+            QuerySnapshot querySnapshot = query.get().get();
+            List<Room> rooms = new ArrayList<>();
+
+            for (DocumentSnapshot document : querySnapshot.getDocuments()) {
+                Room room = document.toObject(Room.class);
+                if (room != null) {
+                    rooms.add(room);
+                }
+            }
+
+            log.info("Found {} rooms for user: {}", rooms.size(), userId);
+            return rooms;
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("Error finding rooms by user ID {}: {}", userId, e.getMessage());
+            throw new RoomException("Failed to find rooms by user: " + e.getMessage());
         }
     }
 }

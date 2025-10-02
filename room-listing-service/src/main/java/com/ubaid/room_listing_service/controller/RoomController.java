@@ -1,9 +1,7 @@
 package com.ubaid.room_listing_service.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ubaid.room_listing_service.dto.ApiResponse;
-import com.ubaid.room_listing_service.dto.RoomRequestDTO;
-import com.ubaid.room_listing_service.dto.RoomResponseDTO;
+import com.ubaid.room_listing_service.dto.*;
 import com.ubaid.room_listing_service.service.RoomService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -208,4 +206,27 @@ public class RoomController {
                     .body(ApiResponse.error("Failed to search rooms: " + e.getMessage()));
         }
     }
+//    @PostMapping("/availability/check")
+//    public ResponseEntity<ApiResponse<Boolean>> checkAvailability(@RequestBody AvailabilityCheckRequest request) {
+//        try {
+//            boolean available = roomService.checkRoomAvailability(request);
+//            return ResponseEntity.ok(ApiResponse.success("Availability checked", available));
+//        } catch (Exception e) {
+//            log.error("Error checking availability: {}", e.getMessage());
+//            return ResponseEntity.status(500)
+//                    .body(ApiResponse.error("Failed to check availability: " + e.getMessage()));
+//        }
+//    }
+//
+//    @PostMapping("/availability/update")
+//    public ResponseEntity<ApiResponse<Void>> updateAvailability(@RequestBody AvailabilityUpdateRequest request) {
+//        try {
+//            roomService.updateRoomAvailability(request);
+//            return ResponseEntity.ok(ApiResponse.success("Availability updated", null));
+//        } catch (Exception e) {
+//            log.error("Error updating availability: {}", e.getMessage());
+//            return ResponseEntity.status(500)
+//                    .body(ApiResponse.error("Failed to update availability: " + e.getMessage()));
+//        }
+//    }
 }

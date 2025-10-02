@@ -22,8 +22,10 @@ jwt:
 
 auth-service:
   url: http://localhost:8080
+
 hotel-service:
   url: http://localhost:8082
+
 room-service:
   url: http://localhost:8083
 
@@ -38,7 +40,8 @@ logging:
     com.ubaid.booking_service: INFO
     com.ubaid.booking_service.config.SecurityConfig: DEBUG
     com.ubaid.booking_service.service.JwtService: DEBUG
-    org.springframework.security: DEBUG
+    org.springframework.security: DEBUG  # For debugging security issues
+#    org.springframework.security: INFO
     org.springframework.security.web: DEBUG
     org.springframework.web.servlet.mvc.method.annotation: DEBUG
     org.springframework.cloud.openfeign: DEBUG

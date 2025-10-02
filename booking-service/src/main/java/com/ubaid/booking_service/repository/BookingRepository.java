@@ -85,6 +85,58 @@ public class BookingRepository {
         }
     }
 
+    /**
+     * Find all bookings by status
+     */
+    public List<Booking> findByStatus(BookingStatus status) {
+        try {
+            Query query = firestore.collection(COLLECTION_NAME)
+                    .whereEqualTo("bookingStatus", status.name());
+
+            QuerySnapshot querySnapshot = query.get().get();
+            List<Booking> bookings = new ArrayList<>();
+
+            for (DocumentSnapshot document : querySnapshot.getDocuments()) {
+                bookings.add(convertMapToEntity(document.getData(), document.getId()));
+            }
+
+            log.info("Found {} bookings with status: {}", bookings.size(), status);
+            return bookings;
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("Error finding bookings by status {}: {}", status, e.getMessage());
+            throw new BookingException("Failed to find bookings: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Find active bookings (CONFIRMED status) for a specific room and date
+     */
+    public List<Booking> findActiveBookingsByRoomAndDate(String roomId, String date) {
+        try {
+            Query query = firestore.collection(COLLECTION_NAME)
+                    .whereEqualTo("roomId", roomId)
+                    .whereEqualTo("bookingStatus", BookingStatus.CONFIRMED.name());
+
+            QuerySnapshot querySnapshot = query.get().get();
+            List<Booking> bookings = new ArrayList<>();
+
+            for (DocumentSnapshot document : querySnapshot.getDocuments()) {
+                Booking booking = convertMapToEntity(document.getData(), document.getId());
+
+                // Check if the date falls within the booking period
+                if (isDateWithinBooking(date, booking.getCheckInDate(), booking.getCheckOutDate())) {
+                    bookings.add(booking);
+                }
+            }
+
+            return bookings;
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("Error finding active bookings for room {} on date {}: {}",
+                    roomId, date, e.getMessage());
+            throw new BookingException("Failed to find bookings: " + e.getMessage());
+        }
+    }
+
     public List<Booking> findByUserIdAndLocation(String userId, String location) {
         try {
             Query query = firestore.collection(COLLECTION_NAME)
@@ -197,6 +249,10 @@ public class BookingRepository {
                                    String newCheckIn, String newCheckOut) {
         return !(existingCheckOut.compareTo(newCheckIn) <= 0 ||
                 existingCheckIn.compareTo(newCheckOut) >= 0);
+    }
+
+    private boolean isDateWithinBooking(String date, String checkIn, String checkOut) {
+        return date.compareTo(checkIn) >= 0 && date.compareTo(checkOut) < 0;
     }
 
     private Map<String, Object> convertEntityToMap(Booking booking) {

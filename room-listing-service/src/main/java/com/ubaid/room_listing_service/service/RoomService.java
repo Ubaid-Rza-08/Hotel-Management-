@@ -2,22 +2,24 @@ package com.ubaid.room_listing_service.service;
 
 import com.ubaid.room_listing_service.client.AuthServiceClient;
 import com.ubaid.room_listing_service.client.HotelServiceClient;
-import com.ubaid.room_listing_service.dto.RoomRequestDTO;
-import com.ubaid.room_listing_service.dto.RoomResponseDTO;
-import com.ubaid.room_listing_service.dto.InvoiceDetailsRequest;
+import com.ubaid.room_listing_service.dto.*;
 import com.ubaid.room_listing_service.entity.Room;
 import com.ubaid.room_listing_service.entity.InvoiceDetails;
+import com.ubaid.room_listing_service.entity.RoomAvailability;
 import com.ubaid.room_listing_service.exception.RoomException;
 import com.ubaid.room_listing_service.repository.RoomRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -32,6 +34,8 @@ public class RoomService {
     private final HotelServiceClient hotelServiceClient;
 
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss");
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
 
     public RoomResponseDTO createRoom(String userId, RoomRequestDTO roomRequest,
                                       List<MultipartFile> roomImages, String authToken) {
@@ -56,9 +60,8 @@ public class RoomService {
                     .breakfastIncluded(roomRequest.getBreakfastIncluded())
                     .parkingAvailable(roomRequest.getParkingAvailable())
                     .languages(roomRequest.getLanguages())
-                    // Convert LocalTime to String for Firestore compatibility
-                    .checkinTime(roomRequest.getCheckinTime() != null ? roomRequest.getCheckinTime().format(TIME_FORMATTER) : null)
-                    .checkoutTime(roomRequest.getCheckoutTime() != null ? roomRequest.getCheckoutTime().format(TIME_FORMATTER) : null)
+                    .checkinTime(roomRequest.getCheckinTime().format(TIME_FORMATTER))
+                    .checkoutTime(roomRequest.getCheckoutTime().format(TIME_FORMATTER))
                     .childrenAllowed(roomRequest.getChildrenAllowed())
                     .petAllowed(roomRequest.getPetAllowed())
                     .bathroomType(roomRequest.getBathroomType())
@@ -76,23 +79,18 @@ public class RoomService {
                     .isActive(true)
                     .build();
 
+            // Upload images if provided
             if (roomImages != null && !roomImages.isEmpty()) {
-                List<String> uploadedImageUrls = new ArrayList<>();
-                for (MultipartFile file : roomImages) {
-                    if (!file.isEmpty()) {
-                        String imageUrl = cloudinaryService.uploadImage(file,
-                                "rooms/" + room.getRoomId() + "/images");
-                        uploadedImageUrls.add(imageUrl);
-                    }
+                List<String> uploadedImages = new ArrayList<>();
+                for (MultipartFile image : roomImages) {
+                    String imageUrl = cloudinaryService.uploadImage(image, "rooms/" + room.getRoomId());
+                    uploadedImages.add(imageUrl);
                 }
-                room.setRoomImages(uploadedImageUrls);
+                room.setRoomImages(uploadedImages);
             }
 
             Room savedRoom = roomRepository.save(room);
-            log.info("Room created successfully: {}", savedRoom.getRoomId());
-
             return convertToResponseDTO(savedRoom);
-
         } catch (Exception e) {
             log.error("Error creating room: {}", e.getMessage());
             throw new RoomException("Failed to create room: " + e.getMessage());
@@ -133,6 +131,19 @@ public class RoomService {
             throw new RoomException("Failed to retrieve rooms: " + e.getMessage());
         }
     }
+
+//    public List<RoomResponseDTO> getMyRooms(String userId, String authToken) {
+//        try {
+//            validateUser(userId, authToken);
+//            List<Room> rooms = roomRepository.findByUserId(userId);
+//            return rooms.stream()
+//                    .map(this::convertToResponseDTO)
+//                    .collect(Collectors.toList());
+//        } catch (Exception e) {
+//            log.error("Error retrieving rooms for user {}: {}", userId, e.getMessage());
+//            throw new RoomException("Failed to retrieve rooms: " + e.getMessage());
+//        }
+//    }
 
     public List<RoomResponseDTO> getRoomsByHotel(String hotelId) {
         try {
@@ -333,13 +344,12 @@ public class RoomService {
                 .userId(room.getUserId())
                 .hotelId(room.getHotelId())
                 .roomName(room.getRoomName())
-                .roomType(room.getRoomType() != null ? room.getRoomType().getDisplayName() : null)
+                .roomType(room.getRoomType() != null ? room.getRoomType().name() : null)
                 .bedAvailable(room.getBedAvailable() != null ? room.getBedAvailable().ordinal() : null)
                 .roomImages(room.getRoomImages())
                 .breakfastIncluded(room.getBreakfastIncluded())
                 .parkingAvailable(room.getParkingAvailable())
                 .languages(room.getLanguages())
-                // Time fields are now stored as String, so return them directly
                 .checkinTime(room.getCheckinTime())
                 .checkoutTime(room.getCheckoutTime())
                 .childrenAllowed(room.getChildrenAllowed())
@@ -368,8 +378,8 @@ public class RoomService {
         try {
             return new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(invoiceDetails);
         } catch (Exception e) {
-            log.warn("Failed to convert InvoiceDetails to JSON: {}", e.getMessage());
-            return invoiceDetails.toString();
+            log.error("Error cleaning up old availability records: {}", e.getMessage());
         }
+        return "";
     }
 }
