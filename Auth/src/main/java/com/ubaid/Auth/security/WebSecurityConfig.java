@@ -36,6 +36,7 @@ public class WebSecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/public/**").permitAll()
                         .requestMatchers("/api/v1/auth/**").permitAll()
+                        .requestMatchers("/api/v1/auth/callback/**").permitAll() // Allow callback endpoints
                         .requestMatchers("/api/v1/users/*/validate").permitAll()
                         .requestMatchers("/v3/api-docs/**").permitAll()
                         .requestMatchers("/swagger-ui.html").permitAll()
@@ -61,13 +62,10 @@ public class WebSecurityConfig {
 
                             cookieAuthorizationRequestRepository.removeAuthorizationRequest(request, response);
 
-                            response.setStatus(401);
-                            response.setContentType("application/json");
-                            response.getWriter().write(String.format(
-                                    "{\"error\":\"OAuth2 Authentication Failed\",\"message\":\"%s\",\"timestamp\":%d}",
-                                    exception.getMessage().replace("\"", "\\\""),
-                                    System.currentTimeMillis()
-                            ));
+                            // Redirect to frontend with error instead of JSON response
+                            String errorRedirectUrl = "http://localhost:3000/auth/callback?error=" +
+                                    java.net.URLEncoder.encode("OAuth2 authentication failed", java.nio.charset.StandardCharsets.UTF_8);
+                            response.sendRedirect(errorRedirectUrl);
                         })
                         .successHandler(oAuth2SuccessHandler)
                 )

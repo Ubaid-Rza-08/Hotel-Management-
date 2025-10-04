@@ -4,12 +4,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ubaid.Auth.dto.SignUpResponseDto;
 import com.ubaid.Auth.service.AuthService;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
@@ -66,24 +66,15 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
             // Clean up authorization request cookies
             cookieAuthorizationRequestRepository.removeAuthorizationRequest(request, response);
 
-            // Determine redirect strategy based on request
-            String userAgent = request.getHeader("User-Agent");
-            boolean isApiCall = request.getHeader("Accept") != null &&
-                    request.getHeader("Accept").contains("application/json");
+            // Store tokens in secure HTTP-only cookies instead of URL parameters
+            setTokenCookies(response, responseDto);
 
-            if (isApiCall) {
-                // Return JSON response for API calls
-                response.setStatus(signupResponse.getStatusCode().value());
-                response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-                response.getWriter().write(objectMapper.writeValueAsString(responseDto));
-                log.info("OAuth2 success: API response sent for user: {}", responseDto.getUserId());
-            } else {
-                // Redirect to frontend with tokens as URL parameters (for browser flows)
-                String finalRedirectUrl = buildRedirectUrl(redirectUri, responseDto);
-                response.sendRedirect(finalRedirectUrl);
-                log.info("OAuth2 success: Redirecting user {} to: {}",
-                        responseDto.getUserId(), redirectUri);
-            }
+            // Redirect to frontend callback without tokens in URL
+            String finalRedirectUrl = redirectUri + "?success=true&user_id=" +
+                    URLEncoder.encode(responseDto.getUserId(), StandardCharsets.UTF_8);
+
+            response.sendRedirect(finalRedirectUrl);
+            log.info("OAuth2 success: Redirecting user {} to: {}", responseDto.getUserId(), redirectUri);
 
         } catch (Exception e) {
             log.error("Error processing OAuth2 authentication success", e);
@@ -91,31 +82,41 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
             // Clean up cookies on error
             cookieAuthorizationRequestRepository.removeAuthorizationRequest(request, response);
 
-            // Send error response
-            response.setStatus(500);
-            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            response.getWriter().write(String.format(
-                    "{\"error\":\"OAuth2 Processing Failed\",\"message\":\"%s\",\"timestamp\":%d}",
-                    e.getMessage().replace("\"", "\\\""),
-                    System.currentTimeMillis()
-            ));
+            // Redirect to error page
+            String errorRedirectUrl = defaultRedirectUrl + "?error=" +
+                    URLEncoder.encode("Authentication failed", StandardCharsets.UTF_8);
+            response.sendRedirect(errorRedirectUrl);
         }
     }
 
-    private String buildRedirectUrl(String baseUrl, SignUpResponseDto responseDto) {
-        try {
-            String separator = baseUrl.contains("?") ? "&" : "?";
+    private void setTokenCookies(HttpServletResponse response, SignUpResponseDto responseDto) {
+        // Access token cookie (shorter expiry, not HTTP-only for frontend access)
+        Cookie accessTokenCookie = new Cookie("access_token", responseDto.getAccessToken());
+        accessTokenCookie.setHttpOnly(false); // Frontend needs to read this
+        accessTokenCookie.setSecure(false); // Set to true in production with HTTPS
+        accessTokenCookie.setPath("/");
+        accessTokenCookie.setMaxAge(15 * 60); // 15 minutes
+        accessTokenCookie.setAttribute("SameSite", "Lax");
+        response.addCookie(accessTokenCookie);
 
-            return baseUrl + separator +
-                    "access_token=" + URLEncoder.encode(responseDto.getAccessToken(), StandardCharsets.UTF_8) +
-                    "&refresh_token=" + URLEncoder.encode(responseDto.getRefreshToken(), StandardCharsets.UTF_8) +
-                    "&user_id=" + URLEncoder.encode(responseDto.getUserId(), StandardCharsets.UTF_8) +
-                    "&message=" + URLEncoder.encode(responseDto.getMessage(), StandardCharsets.UTF_8) +
-                    "&timestamp=" + System.currentTimeMillis();
+        // Refresh token cookie (HTTP-only for security)
+        Cookie refreshTokenCookie = new Cookie("refresh_token", responseDto.getRefreshToken());
+        refreshTokenCookie.setHttpOnly(true); // More secure, backend handles refresh
+        refreshTokenCookie.setSecure(false); // Set to true in production with HTTPS
+        refreshTokenCookie.setPath("/");
+        refreshTokenCookie.setMaxAge(7 * 24 * 60 * 60); // 7 days
+        refreshTokenCookie.setAttribute("SameSite", "Lax");
+        response.addCookie(refreshTokenCookie);
 
-        } catch (Exception e) {
-            log.error("Error building redirect URL", e);
-            return baseUrl + "?error=redirect_build_failed";
-        }
+        // User info cookie for frontend
+        Cookie userIdCookie = new Cookie("user_id", responseDto.getUserId());
+        userIdCookie.setHttpOnly(false);
+        userIdCookie.setSecure(false);
+        userIdCookie.setPath("/");
+        userIdCookie.setMaxAge(7 * 24 * 60 * 60); // 7 days
+        userIdCookie.setAttribute("SameSite", "Lax");
+        response.addCookie(userIdCookie);
+
+        log.debug("Set secure cookies for OAuth2 tokens");
     }
 }
