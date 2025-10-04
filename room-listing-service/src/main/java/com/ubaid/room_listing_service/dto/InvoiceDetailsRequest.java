@@ -3,6 +3,7 @@ package com.ubaid.room_listing_service.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -13,45 +14,38 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class InvoiceDetailsRequest {
-
     @NotBlank(message = "Invoice name is required")
-    @JsonProperty("invoiceName")
     private String invoiceName;
 
     @NotBlank(message = "Property name is required")
-    @JsonProperty("propertyName")
     private String propertyName;
 
-    @JsonProperty("propertyAddress")
+    @NotBlank(message = "Property address is required")
     private String propertyAddress;
 
-    @JsonProperty("licenseNumber")
+    @NotBlank(message = "License number is required")
     private String licenseNumber;
 
-    // Accept dates as strings in yyyy-MM-dd format
-    @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}", message = "Issuing date must be in yyyy-MM-dd format")
-    @JsonProperty("issuingDate")
-    private String issuingDate;
+    @NotBlank(message = "Issuing date is required")
+    private String issuingDate; // Format: "yyyy-MM-dd"
 
-    @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}", message = "Expiry date must be in yyyy-MM-dd format")
-    @JsonProperty("expiryDate")
-    private String expiryDate;
+    @NotBlank(message = "Expiry date is required")
+    private String expiryDate; // Format: "yyyy-MM-dd"
 
-    @JsonProperty("gstRegistered")
     private Boolean gstRegistered;
 
-    @JsonProperty("tradeName")
+    @Size(max = 100, message = "Trade name must be less than 100 characters")
     private String tradeName;
 
-    @JsonProperty("gstNumber")
+    @Size(max = 20, message = "GST number must be less than 20 characters")
     private String gstNumber;
 
-    @JsonProperty("panNumber")
+    @Size(max = 20, message = "PAN number must be less than 20 characters")
     private String panNumber;
 
-    @JsonProperty("state")
+    @NotBlank(message = "State is required")
     private String state;
 
-    @JsonProperty("aadharNumber")
+    @Size(max = 20, message = "Aadhar number must be less than 20 characters")
     private String aadharNumber;
 }

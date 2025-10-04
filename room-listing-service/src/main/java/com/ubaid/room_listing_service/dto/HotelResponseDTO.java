@@ -1,7 +1,6 @@
-package com.ubaid.hotel_listing_service.dto;
+package com.ubaid.room_listing_service.dto;
 
-import com.ubaid.hotel_listing_service.entity.Amenity;
-import com.ubaid.hotel_listing_service.entity.HotelDescription;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

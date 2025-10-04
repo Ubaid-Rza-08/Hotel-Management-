@@ -16,10 +16,8 @@ import java.util.List;
 public class TimeSlotResponse {
     private String location;
     private Integer totalHotels;
-
     @JsonFormat(pattern = "HH:mm")
     private List<LocalTime> availableCheckInTimes;
-
     @JsonFormat(pattern = "HH:mm")
     private List<LocalTime> availableCheckOutTimes;
 }

@@ -1,5 +1,9 @@
 package com.ubaid.room_listing_service.client;
 
+
+import com.ubaid.room_listing_service.client.FeignConfig;
+import com.ubaid.room_listing_service.dto.ApiResponse;
+import com.ubaid.room_listing_service.dto.HotelResponseDTO;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -15,7 +19,7 @@ public interface HotelServiceClient {
     Map<String, Object> getHotelById(@PathVariable String hotelId);
 
     @GetMapping("/api/hotels/validate-ownership")
-    boolean validateHotelOwnership(@RequestParam String userId,
-                                   @RequestParam String hotelId,
-                                   @RequestHeader("Authorization") String token);
+    ApiResponse<Boolean> validateHotelOwnership(@RequestParam String userId,
+                                                @RequestParam String hotelId,
+                                                @RequestHeader("Authorization") String token);
 }

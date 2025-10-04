@@ -24,9 +24,10 @@ public class HotelResponseDTO {
     private String googleMapScreenshot;
     private List<HotelDescription> descriptions;
     private List<Amenity> amenities;
+    private Integer extraBeds;
+    private Integer perExtraBedPrice;
     private LocalTime checkinTime;
     private LocalTime checkoutTime;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
-

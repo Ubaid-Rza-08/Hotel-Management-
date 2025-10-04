@@ -1,6 +1,7 @@
 package com.ubaid.booking_service.dto;
 
 import com.ubaid.booking_service.enums.BedType;
+import com.ubaid.booking_service.enums.PricingType;
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -71,4 +72,12 @@ public class BookingRequestDTO {
 
     @Size(max = 500, message = "Special requests cannot exceed 500 characters")
     private String specialRequests;
+
+    // Pricing options
+    @NotNull(message = "Pricing type is required")
+    private PricingType pricingType; // BASE, SINGLE_OCCUPANCY, DOUBLE_OCCUPANCY
+
+    @Min(value = 0, message = "Number of extra beds cannot be negative")
+    @Max(value = 5, message = "Maximum 5 extra beds allowed")
+    private Integer numberOfExtraBeds;
 }

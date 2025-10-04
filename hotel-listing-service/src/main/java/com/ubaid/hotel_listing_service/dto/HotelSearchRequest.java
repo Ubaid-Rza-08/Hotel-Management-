@@ -15,13 +15,10 @@ import java.util.List;
 @AllArgsConstructor
 public class HotelSearchRequest {
     private String location;
-
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime checkInDateTime;
-
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime checkOutDateTime;
-
     private Double minRating;
     private Double maxRating;
     private List<String> requiredAmenities;

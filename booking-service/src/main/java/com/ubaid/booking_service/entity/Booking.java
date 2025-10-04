@@ -2,6 +2,7 @@ package com.ubaid.booking_service.entity;
 
 import com.ubaid.booking_service.enums.BedType;
 import com.ubaid.booking_service.enums.BookingStatus;
+import com.ubaid.booking_service.enums.PricingType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -32,9 +33,20 @@ public class Booking {
     private String checkOutDate;
     private String checkInTime;
     private String checkOutTime;
-    private Double totalAmount;
+
+    // Pricing fields
+    private PricingType pricingType;
+    private Double basePrice;
+    private Double priceForOneGuest;
+    private Double priceForTwoGuest;
+    private Double selectedRoomPrice; // Price based on selected pricing type
+    private Integer numberOfExtraBeds;
+    private Double extraBedPrice;
+    private Double totalExtraBedCost;
     private Double pricePerRoom;
+    private Double totalAmount;
     private Integer totalNights;
+
     private BookingStatus bookingStatus;
     private String confirmationCode;
     private String specialRequests;

@@ -132,19 +132,6 @@ public class RoomService {
         }
     }
 
-//    public List<RoomResponseDTO> getMyRooms(String userId, String authToken) {
-//        try {
-//            validateUser(userId, authToken);
-//            List<Room> rooms = roomRepository.findByUserId(userId);
-//            return rooms.stream()
-//                    .map(this::convertToResponseDTO)
-//                    .collect(Collectors.toList());
-//        } catch (Exception e) {
-//            log.error("Error retrieving rooms for user {}: {}", userId, e.getMessage());
-//            throw new RoomException("Failed to retrieve rooms: " + e.getMessage());
-//        }
-//    }
-
     public List<RoomResponseDTO> getRoomsByHotel(String hotelId) {
         try {
             List<Room> rooms = roomRepository.findByHotelId(hotelId);
@@ -327,8 +314,8 @@ public class RoomService {
 
     private void validateHotelOwnership(String userId, String hotelId, String authToken) {
         try {
-            boolean isOwner = hotelServiceClient.validateHotelOwnership(userId, hotelId, authToken);
-            if (!isOwner) {
+            ApiResponse<Boolean> response = hotelServiceClient.validateHotelOwnership(userId, hotelId, authToken);
+            if (response == null || response.getData() == null || !response.getData()) {
                 throw new RoomException("Unauthorized: You can only create rooms for your own hotels");
             }
         } catch (Exception e) {
@@ -378,7 +365,7 @@ public class RoomService {
         try {
             return new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(invoiceDetails);
         } catch (Exception e) {
-            log.error("Error cleaning up old availability records: {}", e.getMessage());
+            log.error("Error converting invoice details to JSON: {}", e.getMessage());
         }
         return "";
     }

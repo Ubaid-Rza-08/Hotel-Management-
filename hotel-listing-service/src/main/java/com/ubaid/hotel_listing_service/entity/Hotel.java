@@ -1,8 +1,5 @@
 package com.ubaid.hotel_listing_service.entity;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -23,6 +20,8 @@ public class Hotel {
     private String googleMapScreenshot;
     private List<HotelDescription> descriptions; // Max 5 descriptions
     private List<Amenity> amenities; // Max 15 amenities
+    private Integer extraBeds;
+    private Integer perExtraBedPrice;
     private LocalTime checkinTime;
     private LocalTime checkoutTime;
     private LocalDateTime createdAt;
