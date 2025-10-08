@@ -47,3 +47,6 @@ logging:
     org.springframework.cloud.openfeign: DEBUG
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+#  spring-boot:build-image -DskipTests
+#docker container run -d -p 8084:8084 ubaidrza/mmv3-booking-service:0.0.1-SNAPSHOT

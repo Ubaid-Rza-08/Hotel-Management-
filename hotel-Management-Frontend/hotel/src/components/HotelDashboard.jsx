@@ -1,26 +1,55 @@
-// src/components/HotelDashboard.jsx
+// components/HotelDashboard.jsx
 import React, { useState, useEffect } from 'react';
-import { Plus, Hotel, Search, Filter, Star, MapPin, Clock, Users, Edit2, Trash2, Eye } from 'lucide-react';
+import { 
+  Plus, 
+  Hotel, 
+  Star, 
+  MapPin, 
+  TrendingUp, 
+  Building,
+  CheckSquare,
+  CreditCard,
+  User,
+  Eye,
+  Edit2,
+  Trash2,
+  RefreshCw,
+  AlertCircle
+} from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import StatCard from './ui/StatCard';
+import TabButton from './ui/TabButton';
+import PropertyCard from './ui/PropertyCard';
+import ActivityItem from './ui/ActivityItem';
+import ActionButton from './ui/ActionButton';
 
-const HotelDashboard = () => {
-  const { token } = useAuth();
+const HotelDashboard = ({ currentView, setCurrentView }) => {
+  const { user, token } = useAuth();
+  const [activeTab, setActiveTab] = useState('overview');
   const [hotels, setHotels] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('my-hotels');
+  const [error, setError] = useState(null);
+  const [stats, setStats] = useState({
+    totalProperties: 0,
+    activeBookings: 0,
+    revenue: 0,
+    avgRating: 0
+  });
 
   const API_BASE_URL = 'http://localhost:8082/api/hotels';
 
   useEffect(() => {
-    if (activeTab === 'my-hotels') {
-      fetchMyHotels();
-    } else {
-      fetchAllHotels();
-    }
-  }, [activeTab]);
+    fetchMyHotels();
+    fetchDashboardStats();
+  }, []);
 
   const fetchMyHotels = async () => {
-    setLoading(true);
+    if (!token) {
+      setError('Authentication required');
+      setLoading(false);
+      return;
+    }
+
     try {
       const response = await fetch(`${API_BASE_URL}/my-hotels`, {
         headers: {
@@ -28,34 +57,58 @@ const HotelDashboard = () => {
           'Content-Type': 'application/json'
         }
       });
+
       if (response.ok) {
         const data = await response.json();
-        setHotels(data.data || []);
+        if (data.success && data.data) {
+          setHotels(data.data);
+        } else {
+          setError(data.error || 'Failed to fetch hotels');
+          setHotels([]);
+        }
+      } else if (response.status === 401) {
+        setError('Authentication failed. Please login again.');
+        setHotels([]);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || `HTTP Error: ${response.status}`);
+        setHotels([]);
       }
     } catch (error) {
       console.error('Error fetching hotels:', error);
+      setError('Network error. Please check your connection.');
+      setHotels([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchAllHotels = async () => {
-    setLoading(true);
+  const fetchDashboardStats = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/public/all`);
-      if (response.ok) {
-        const data = await response.json();
-        setHotels(data.data || []);
-      }
+      // Calculate stats from hotel data
+      const totalProperties = hotels.length;
+      const avgRating = hotels.length > 0 
+        ? hotels.reduce((sum, hotel) => sum + (hotel.rating || 0), 0) / hotels.length 
+        : 0;
+      
+      setStats({
+        totalProperties,
+        activeBookings: Math.floor(Math.random() * 50) + 20, // This would come from booking API
+        revenue: Math.floor(Math.random() * 500000) + 100000, // This would come from booking API
+        avgRating: parseFloat(avgRating.toFixed(1))
+      });
     } catch (error) {
-      console.error('Error fetching all hotels:', error);
-    } finally {
-      setLoading(false);
+      console.error('Error calculating stats:', error);
     }
   };
 
   const deleteHotel = async (hotelId) => {
     if (!confirm('Are you sure you want to delete this hotel?')) return;
+
+    if (!token) {
+      alert('Authentication required');
+      return;
+    }
 
     try {
       const response = await fetch(`${API_BASE_URL}/delete/${hotelId}`, {
@@ -64,11 +117,22 @@ const HotelDashboard = () => {
           'Authorization': `Bearer ${token}`
         }
       });
+
       if (response.ok) {
-        fetchMyHotels();
+        const data = await response.json();
+        if (data.success) {
+          alert('Hotel deleted successfully!');
+          fetchMyHotels(); // Refresh the list
+        } else {
+          alert('Failed to delete hotel: ' + (data.error || 'Unknown error'));
+        }
+      } else {
+        const errorData = await response.json();
+        alert('Failed to delete hotel: ' + (errorData.error || `HTTP Error: ${response.status}`));
       }
     } catch (error) {
       console.error('Error deleting hotel:', error);
+      alert('Network error. Please try again.');
     }
   };
 
@@ -82,199 +146,282 @@ const HotelDashboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-amber-100 rounded-full mb-4 animate-pulse">
-            <Hotel className="w-8 h-8 text-amber-600" />
-          </div>
-          <p className="text-gray-600">Loading hotels...</p>
+          <RefreshCw className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Loading your hotels...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Hotel Management</h1>
-              <p className="text-gray-600 mt-1">Manage your hotel listings and bookings</p>
-            </div>
-            <button className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white font-semibold rounded-xl hover:from-amber-700 hover:to-orange-700 transition-all duration-200 shadow-lg hover:shadow-xl">
-              <Plus className="w-5 h-5" />
-              Add New Hotel
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Hero Section */}
+      <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-8 mb-8 text-white">
+        <div className="max-w-4xl">
+          <h1 className="text-3xl md:text-4xl font-bold mb-4">
+            Welcome back, {user.fullName || 'Guest'}!
+          </h1>
+          <p className="text-lg text-blue-100 mb-6">
+            Manage your properties, track bookings, and grow your hospitality business with our comprehensive platform.
+          </p>
+          <div className="flex flex-wrap gap-4">
+            <button 
+              onClick={() => setCurrentView('create-hotel')}
+              className="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors"
+            >
+              Add New Property
+            </button>
+            <button className="border border-blue-400 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors">
+              View Analytics
             </button>
           </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-        <div className="flex space-x-1 bg-white rounded-xl p-1 shadow-sm">
-          <button
-            onClick={() => setActiveTab('my-hotels')}
-            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all duration-200 ${
-              activeTab === 'my-hotels'
-                ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-            }`}
-          >
-            My Hotels
-          </button>
-          <button
-            onClick={() => setActiveTab('all-hotels')}
-            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all duration-200 ${
-              activeTab === 'all-hotels'
-                ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-            }`}
-          >
-            Browse All Hotels
-          </button>
+      {/* Error Display */}
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 text-red-600" />
+            <p className="text-red-700">{error}</p>
+            <button 
+              onClick={fetchMyHotels}
+              className="ml-auto text-red-600 hover:text-red-700"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          </div>
         </div>
+      )}
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <StatCard
+          title="Total Properties"
+          value={stats.totalProperties.toString()}
+          change="+2 this month"
+          icon={Building}
+          color="bg-green-500"
+          positive={true}
+        />
+        <StatCard
+          title="Active Bookings"
+          value={stats.activeBookings.toString()}
+          change="+12% this week"
+          icon={CheckSquare}
+          color="bg-blue-500"
+          positive={true}
+        />
+        <StatCard
+          title="Revenue"
+          value={`₹${stats.revenue.toLocaleString()}`}
+          change="+8.2% vs last month"
+          icon={TrendingUp}
+          color="bg-purple-500"
+          positive={true}
+        />
+        <StatCard
+          title="Avg Rating"
+          value={stats.avgRating.toString() || '0.0'}
+          change="+0.2 this month"
+          icon={Star}
+          color="bg-yellow-500"
+          positive={true}
+        />
       </div>
 
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {hotels.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="inline-flex items-center justify-center w-24 h-24 bg-amber-100 rounded-full mb-6">
-              <Hotel className="w-12 h-12 text-amber-600" />
-            </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              {activeTab === 'my-hotels' ? 'No hotels yet' : 'No hotels found'}
-            </h3>
-            <p className="text-gray-600 mb-6">
-              {activeTab === 'my-hotels' 
-                ? 'Create your first hotel listing to get started' 
-                : 'Check back later for new hotel listings'
-              }
-            </p>
-            {activeTab === 'my-hotels' && (
-              <button className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white font-semibold rounded-xl hover:from-amber-700 hover:to-orange-700 transition-all duration-200">
-                <Plus className="w-5 h-5" />
-                Add Your First Hotel
-              </button>
-            )}
+      {/* Tabs */}
+      <div className="bg-white rounded-lg shadow-sm mb-6">
+        <div className="border-b border-gray-200">
+          <div className="flex space-x-8 px-6">
+            <TabButton
+              label="Overview"
+              active={activeTab === 'overview'}
+              onClick={() => setActiveTab('overview')}
+            />
+            <TabButton
+              label="Properties"
+              active={activeTab === 'properties'}
+              onClick={() => setActiveTab('properties')}
+            />
+            <TabButton
+              label="Recent Bookings"
+              active={activeTab === 'bookings'}
+              onClick={() => setActiveTab('bookings')}
+            />
+            <TabButton
+              label="Analytics"
+              active={activeTab === 'analytics'}
+              onClick={() => setActiveTab('analytics')}
+            />
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {hotels.map((hotel) => (
-              <div key={hotel.hotelId} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 group">
-                {/* Hotel Image */}
-                <div className="relative h-48 bg-gradient-to-br from-amber-100 to-orange-100">
-                  {hotel.hotelImages && hotel.hotelImages.length > 0 ? (
-                    <img
-                      src={hotel.hotelImages[0]}
-                      alt={hotel.hotelName}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Hotel className="w-16 h-16 text-amber-500" />
-                    </div>
-                  )}
-                  
-                  {/* Rating Badge */}
-                  {hotel.rating && (
-                    <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg px-2 py-1 flex items-center gap-1">
-                      <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                      <span className="text-sm font-medium">{hotel.rating}</span>
-                    </div>
-                  )}
+        </div>
 
-                  {/* Action Buttons */}
-                  {activeTab === 'my-hotels' && (
-                    <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button className="w-8 h-8 bg-white/90 backdrop-blur-sm rounded-lg flex items-center justify-center hover:bg-white transition-colors">
-                        <Edit2 className="w-4 h-4 text-gray-600" />
-                      </button>
-                      <button 
-                        onClick={() => deleteHotel(hotel.hotelId)}
-                        className="w-8 h-8 bg-white/90 backdrop-blur-sm rounded-lg flex items-center justify-center hover:bg-red-50 transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4 text-red-600" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Hotel Info */}
-                <div className="p-6">
-                  <h3 className="text-xl font-bold text-gray-900 mb-2 line-clamp-1">
-                    {hotel.hotelName}
-                  </h3>
-                  
-                  <div className="flex items-center gap-2 text-gray-600 mb-3">
-                    <MapPin className="w-4 h-4" />
-                    <span className="text-sm line-clamp-1">{hotel.hotelLocation}</span>
-                  </div>
-
-                  {/* Check-in/Check-out Times */}
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div className="text-center p-3 bg-gray-50 rounded-lg">
-                      <Clock className="w-4 h-4 text-gray-500 mx-auto mb-1" />
-                      <p className="text-xs text-gray-500">Check-in</p>
-                      <p className="text-sm font-medium">{formatTime(hotel.checkinTime)}</p>
-                    </div>
-                    <div className="text-center p-3 bg-gray-50 rounded-lg">
-                      <Clock className="w-4 h-4 text-gray-500 mx-auto mb-1" />
-                      <p className="text-xs text-gray-500">Check-out</p>
-                      <p className="text-sm font-medium">{formatTime(hotel.checkoutTime)}</p>
-                    </div>
-                  </div>
-
-                  {/* Amenities */}
-                  {hotel.amenities && hotel.amenities.length > 0 && (
-                    <div className="mb-4">
-                      <p className="text-xs text-gray-500 mb-2">Amenities</p>
-                      <div className="flex flex-wrap gap-1">
-                        {hotel.amenities.slice(0, 3).map((amenity, index) => (
-                          <span
-                            key={index}
-                            className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full"
-                          >
-                            {amenity.name}
-                          </span>
-                        ))}
-                        {hotel.amenities.length > 3 && (
-                          <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full">
-                            +{hotel.amenities.length - 3} more
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Extra Beds Info */}
-                  {hotel.extraBeds > 0 && (
-                    <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
-                      <Users className="w-4 h-4" />
-                      <span>{hotel.extraBeds} extra beds available</span>
-                      {hotel.perExtraBedPrice && (
-                        <span className="text-amber-600 font-medium">
-                          ₹{hotel.perExtraBedPrice}/bed
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* View Details Button */}
-                  <button className="w-full py-2 px-4 bg-gradient-to-r from-amber-600 to-orange-600 text-white font-medium rounded-lg hover:from-amber-700 hover:to-orange-700 transition-all duration-200 flex items-center justify-center gap-2">
-                    <Eye className="w-4 h-4" />
-                    View Details
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <div className="p-6">
+          {activeTab === 'overview' && <OverviewTab setCurrentView={setCurrentView} />}
+          {activeTab === 'properties' && (
+            <PropertiesTab 
+              hotels={hotels} 
+              setCurrentView={setCurrentView} 
+              deleteHotel={deleteHotel}
+              formatTime={formatTime}
+              loading={loading}
+            />
+          )}
+          {activeTab === 'bookings' && <BookingsTab />}
+          {activeTab === 'analytics' && <AnalyticsTab />}
+        </div>
       </div>
     </div>
   );
 };
+
+// Overview Tab Component
+const OverviewTab = ({ setCurrentView }) => (
+  <div className="space-y-6">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Quick Actions */}
+      <div className="bg-gray-50 rounded-lg p-6">
+        <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
+        <div className="space-y-3">
+          <ActionButton 
+            icon={Plus} 
+            label="Add New Property" 
+            color="bg-blue-500" 
+            onClick={() => setCurrentView('create-hotel')}
+          />
+          <ActionButton 
+            icon={Hotel} 
+            label="Add New Room" 
+            color="bg-green-500"
+            onClick={() => setCurrentView('create-room')}
+          />
+          <ActionButton 
+            icon={CheckSquare} 
+            label="View Bookings" 
+            color="bg-purple-500"
+            onClick={() => setCurrentView('bookings')}
+          />
+          <ActionButton 
+            icon={TrendingUp} 
+            label="View Analytics" 
+            color="bg-orange-500"
+          />
+        </div>
+      </div>
+
+      {/* Recent Activity */}
+      <div className="bg-gray-50 rounded-lg p-6">
+        <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
+        <div className="space-y-4">
+          <ActivityItem
+            title="New booking received"
+            description="Ocean View Suite - 3 nights"
+            time="2 hours ago"
+            icon={CheckSquare}
+          />
+          <ActivityItem
+            title="Review posted"
+            description="5-star review for Sunset Villa"
+            time="5 hours ago"
+            icon={Star}
+          />
+          <ActivityItem
+            title="Payment received"
+            description="₹15,000 for booking #BK001"
+            time="1 day ago"
+            icon={CreditCard}
+          />
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+// Properties Tab Component
+const PropertiesTab = ({ hotels, setCurrentView, deleteHotel, formatTime, loading }) => {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <RefreshCw className="w-6 h-6 animate-spin text-gray-400" />
+        <span className="ml-2 text-gray-600">Loading properties...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-semibold">Your Properties ({hotels.length})</h3>
+        <button 
+          onClick={() => setCurrentView('create-hotel')}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          Add Property
+        </button>
+      </div>
+      
+      {hotels.length === 0 ? (
+        <div className="text-center py-12">
+          <Hotel className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No properties yet</h3>
+          <p className="text-gray-600 mb-4">Start by adding your first property to the platform</p>
+          <button 
+            onClick={() => setCurrentView('create-hotel')}
+            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Add Your First Property
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          {hotels.map((hotel) => (
+            <PropertyCard
+              key={hotel.hotelId}
+              hotel={hotel}
+              formatTime={formatTime}
+              onDelete={() => deleteHotel(hotel.hotelId)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Bookings Tab Component
+const BookingsTab = () => (
+  <div className="space-y-6">
+    <h3 className="text-lg font-semibold">Recent Bookings</h3>
+    <div className="text-center py-12">
+      <CheckSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+      <p className="text-gray-600">Booking data would be fetched from the booking service</p>
+      <p className="text-sm text-gray-500 mt-2">Connect to port 8084 for booking information</p>
+    </div>
+  </div>
+);
+
+// Analytics Tab Component
+const AnalyticsTab = () => (
+  <div className="space-y-6">
+    <h3 className="text-lg font-semibold">Performance Analytics</h3>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="bg-gray-50 rounded-lg p-6">
+        <h4 className="font-medium mb-4">Revenue Trends</h4>
+        <div className="h-40 bg-white rounded border flex items-center justify-center">
+          <p className="text-gray-500">Chart integration would go here</p>
+        </div>
+      </div>
+      <div className="bg-gray-50 rounded-lg p-6">
+        <h4 className="font-medium mb-4">Occupancy Rate</h4>
+        <div className="h-40 bg-white rounded border flex items-center justify-center">
+          <p className="text-gray-500">Chart integration would go here</p>
+        </div>
+      </div>
+    </div>
+  </div>
+);
 
 export default HotelDashboard;

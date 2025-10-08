@@ -1,0 +1,59 @@
+services:
+  # Auth Service
+  auth-service:
+    image: ubaidrza/mmv3-auth:0.0.1-SNAPSHOT
+    container_name: hotel-auth-service
+    ports:
+      - "8080:8080"
+    networks:
+      - hotel-network
+    restart: unless-stopped
+
+  # Hotel Listing Service
+  hotel-listing-service:
+    image: ubaidrza/mmv3-hotel-listing-service:0.0.1-SNAPSHOT
+    container_name: hotel-listing-service
+    ports:
+      - "8082:8082"
+
+    networks:
+      - hotel-network
+    restart: unless-stopped
+    depends_on:
+      - auth-service
+
+  # Room Listing Service
+  room-listing-service:
+    image: ubaidrza/mmv3-room-listing-service:0.0.1-SNAPSHOT
+    container_name: room-listing-service
+    ports:
+      - "8083:8083"
+    networks:
+      - hotel-network
+    restart: unless-stopped
+    depends_on:
+      - auth-service
+      - hotel-listing-service
+
+  # Booking Service
+  booking-service:
+    image: ubaidrza/mmv3-booking-service:0.0.1-SNAPSHOT
+    container_name: booking-service
+    ports:
+      - "8084:8084"
+    networks:
+      - hotel-network
+    restart: unless-stopped
+    depends_on:
+      - auth-service
+      - hotel-listing-service
+      - room-listing-service
+
+networks:
+  hotel-network:
+    driver: bridge
+    name: hotel-management-network
+
+volumes:
+  firebase-config:
+    driver: local

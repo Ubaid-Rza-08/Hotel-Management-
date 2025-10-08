@@ -52,3 +52,6 @@ logging:
     org.springframework.web.servlet.mvc.method.annotation: DEBUG
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+#  spring-boot:build-image -DskipTests
+#docker container run -d -p 8082:8082 ubaidrza/mmv3-hotel-listing-service:0.0.1-SNAPSHOT

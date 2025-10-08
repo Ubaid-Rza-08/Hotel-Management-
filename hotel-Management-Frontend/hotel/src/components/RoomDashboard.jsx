@@ -2,28 +2,24 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Plus, 
-  Hotel, 
+  Bed, 
   Search, 
   Edit2, 
   Trash2, 
-  Eye, 
-  Bed, 
-  Users, 
-  Calendar, 
-  Clock, 
-  MapPin, 
-  Car, 
-  Coffee, 
-  Check, 
-  X, 
+  Eye,
   Filter,
-  Star,
   RefreshCw,
-  Settings,
-  TrendingUp,
-  AlertCircle
+  AlertCircle,
+  Users,
+  Clock,
+  Check,
+  X,
+  Star,
+  Building,
+  TrendingUp
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+// import { StatCard } from './ui/StatCard';
 
 const RoomDashboard = () => {
   const { user, token } = useAuth();
@@ -33,8 +29,6 @@ const RoomDashboard = () => {
   const [error, setError] = useState(null);
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [showRoomDetails, setShowRoomDetails] = useState(false);
-  const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('');
   const [sortBy, setSortBy] = useState('newest');
@@ -69,8 +63,6 @@ const RoomDashboard = () => {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('My rooms response:', data);
-        
         if (data.success && data.data) {
           setRooms(data.data);
         } else {
@@ -108,8 +100,6 @@ const RoomDashboard = () => {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('All rooms response:', data);
-        
         if (data.success && data.data) {
           setRooms(data.data);
         } else {
@@ -151,7 +141,7 @@ const RoomDashboard = () => {
         const data = await response.json();
         if (data.success) {
           alert('Room deleted successfully!');
-          fetchMyRooms(); // Refresh the list
+          fetchMyRooms();
         } else {
           alert('Failed to delete room: ' + (data.error || 'Unknown error'));
         }
@@ -205,7 +195,7 @@ const RoomDashboard = () => {
       case 'double': return <Bed className="w-4 h-4" />;
       case 'family': return <Users className="w-4 h-4" />;
       case 'apartment': 
-      case 'suite': return <Hotel className="w-4 h-4" />;
+      case 'suite': return <Building className="w-4 h-4" />;
       default: return <Bed className="w-4 h-4" />;
     }
   };
@@ -248,11 +238,9 @@ const RoomDashboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-            <RefreshCw className="w-8 h-8 text-blue-600 animate-spin" />
-          </div>
+          <RefreshCw className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-4" />
           <p className="text-gray-600">Loading rooms from backend...</p>
           <p className="text-sm text-gray-500 mt-2">Connecting to port 8083</p>
         </div>
@@ -261,103 +249,74 @@ const RoomDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Room Management</h1>
-              <p className="text-gray-600 mt-1">Manage your room listings and availability</p>
-              {error && (
-                <div className="mt-2 p-2 bg-red-100 border border-red-300 rounded-lg">
-                  <p className="text-red-700 text-sm flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4" />
-                    {error}
-                  </p>
-                </div>
-              )}
-            </div>
-            <div className="flex items-center gap-4">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Room Management</h1>
+        <p className="text-gray-600">Manage your room listings and availability</p>
+        
+        {error && (
+          <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-red-600" />
+              <p className="text-red-700">{error}</p>
               <button 
                 onClick={() => activeTab === 'my-rooms' ? fetchMyRooms() : fetchAllRooms()}
-                className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                className="ml-auto text-red-600 hover:text-red-700"
               >
                 <RefreshCw className="w-4 h-4" />
-                Refresh
-              </button>
-              <button className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl">
-                <Plus className="w-5 h-5" />
-                Add New Room
               </button>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Stats Cards */}
       {activeTab === 'my-rooms' && !loading && !error && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-white rounded-xl shadow-sm p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Bed className="w-5 h-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{roomStats.total}</p>
-                  <p className="text-sm text-gray-600">Total Rooms</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                  <Check className="w-5 h-5 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{roomStats.active}</p>
-                  <p className="text-sm text-gray-600">Active Listings</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
-                  <TrendingUp className="w-5 h-5 text-yellow-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">₹{roomStats.avgPrice}</p>
-                  <p className="text-sm text-gray-600">Avg. Price</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <Users className="w-5 h-5 text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{roomStats.totalCapacity}</p>
-                  <p className="text-sm text-gray-600">Total Capacity</p>
-                </div>
-              </div>
-            </div>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <StatCard
+            title="Total Rooms"
+            value={roomStats.total.toString()}
+            change="+3 this month"
+            icon={Bed}
+            color="bg-blue-500"
+            positive={true}
+          />
+          <StatCard
+            title="Active Listings"
+            value={roomStats.active.toString()}
+            change="All active"
+            icon={Check}
+            color="bg-green-500"
+            positive={true}
+          />
+          <StatCard
+            title="Avg. Price"
+            value={`₹${roomStats.avgPrice}`}
+            change="+5% this month"
+            icon={TrendingUp}
+            color="bg-yellow-500"
+            positive={true}
+          />
+          <StatCard
+            title="Total Capacity"
+            value={roomStats.totalCapacity.toString()}
+            change={`${roomStats.totalCapacity} rooms available`}
+            icon={Users}
+            color="bg-purple-500"
+            positive={true}
+          />
         </div>
       )}
 
       {/* Tabs */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-        <div className="flex space-x-1 bg-white rounded-xl p-1 shadow-sm">
+      <div className="bg-white rounded-lg shadow-sm mb-6">
+        <div className="flex space-x-1 p-1">
           <button
             onClick={() => setActiveTab('my-rooms')}
             className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all duration-200 ${
               activeTab === 'my-rooms'
-                ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md'
+                ? 'bg-blue-600 text-white shadow-md'
                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
             }`}
           >
@@ -367,7 +326,7 @@ const RoomDashboard = () => {
             onClick={() => setActiveTab('all-rooms')}
             className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all duration-200 ${
               activeTab === 'all-rooms'
-                ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md'
+                ? 'bg-blue-600 text-white shadow-md'
                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
             }`}
           >
@@ -378,82 +337,75 @@ const RoomDashboard = () => {
 
       {/* Search and Filters */}
       {!loading && !error && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-          <div className="bg-white rounded-xl shadow-sm p-4">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Search rooms..."
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search rooms..."
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
               </div>
-              
-              <div className="flex gap-4">
-                <select
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">All Types</option>
-                  <option value="SINGLE">Single</option>
-                  <option value="DOUBLE">Double</option>
-                  <option value="FAMILY">Family</option>
-                  <option value="SUITE">Suite</option>
-                  <option value="APARTMENT">Apartment</option>
-                </select>
+            </div>
+            
+            <div className="flex gap-4">
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+                className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">All Types</option>
+                <option value="SINGLE">Single</option>
+                <option value="DOUBLE">Double</option>
+                <option value="FAMILY">Family</option>
+                <option value="SUITE">Suite</option>
+                <option value="APARTMENT">Apartment</option>
+              </select>
 
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="newest">Newest First</option>
-                  <option value="price-low">Price: Low to High</option>
-                  <option value="price-high">Price: High to Low</option>
-                  <option value="name">Name A-Z</option>
-                  <option value="availability">Most Available</option>
-                </select>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="newest">Newest First</option>
+                <option value="price-low">Price: Low to High</option>
+                <option value="price-high">Price: High to Low</option>
+                <option value="name">Name A-Z</option>
+                <option value="availability">Most Available</option>
+              </select>
 
-                <button
-                  onClick={() => { setSearchTerm(''); setFilterType(''); setSortBy('newest'); }}
-                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Clear
-                </button>
-              </div>
+              <button
+                onClick={() => { setSearchTerm(''); setFilterType(''); setSortBy('newest'); }}
+                className="px-4 py-3 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Clear
+              </button>
             </div>
           </div>
         </div>
       )}
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="min-h-96">
         {error ? (
           <div className="text-center py-12">
-            <div className="inline-flex items-center justify-center w-24 h-24 bg-red-100 rounded-full mb-6">
-              <AlertCircle className="w-12 h-12 text-red-600" />
-            </div>
+            <AlertCircle className="w-12 h-12 text-red-600 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 mb-2">Connection Error</h3>
             <p className="text-gray-600 mb-6">{error}</p>
             <button 
               onClick={() => activeTab === 'my-rooms' ? fetchMyRooms() : fetchAllRooms()}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors"
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
             >
-              <RefreshCw className="w-5 h-5" />
               Try Again
             </button>
           </div>
         ) : sortedRooms.length === 0 ? (
           <div className="text-center py-12">
-            <div className="inline-flex items-center justify-center w-24 h-24 bg-blue-100 rounded-full mb-6">
-              <Bed className="w-12 h-12 text-blue-600" />
-            </div>
+            <Bed className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 mb-2">
               {searchTerm || filterType ? 'No matching rooms found' : (activeTab === 'my-rooms' ? 'No rooms yet' : 'No rooms found')}
             </h3>
@@ -467,8 +419,7 @@ const RoomDashboard = () => {
               }
             </p>
             {activeTab === 'my-rooms' && !searchTerm && !filterType && (
-              <button className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200">
-                <Plus className="w-5 h-5" />
+              <button className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors">
                 Add Your First Room
               </button>
             )}
@@ -479,157 +430,24 @@ const RoomDashboard = () => {
               const availabilityStatus = getAvailabilityStatus(room.numberOfRooms || 0);
               
               return (
-                <div key={room.roomId} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 group">
-                  {/* Room Image */}
-                  <div className="relative h-48 bg-gradient-to-br from-blue-100 to-indigo-100">
-                    {room.roomImages && room.roomImages.length > 0 ? (
-                      <img
-                        src={room.roomImages[0]}
-                        alt={room.roomName}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                          e.target.nextSibling.style.display = 'flex';
-                        }}
-                      />
-                    ) : null}
-                    <div className="w-full h-full flex items-center justify-center" style={{display: room.roomImages && room.roomImages.length > 0 ? 'none' : 'flex'}}>
-                      <Bed className="w-16 h-16 text-blue-500" />
-                    </div>
-                    
-                    {/* Property Type Badge */}
-                    <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg px-2 py-1">
-                      <span className="text-xs font-medium text-gray-700">
-                        {getPropertyTypeDisplay(room.propertyType)}
-                      </span>
-                    </div>
-
-                    {/* Availability Status */}
-                    <div className={`absolute top-4 right-4 px-2 py-1 rounded-lg text-xs font-medium ${availabilityStatus.color}`}>
-                      {availabilityStatus.text}
-                    </div>
-
-                    {/* Action Buttons */}
-                    {activeTab === 'my-rooms' && (
-                      <div className="absolute bottom-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button 
-                          onClick={() => {
-                            setSelectedRoom(room);
-                            setShowAvailabilityModal(true);
-                          }}
-                          className="w-8 h-8 bg-white/90 backdrop-blur-sm rounded-lg flex items-center justify-center hover:bg-white transition-colors"
-                          title="Manage Availability"
-                        >
-                          <Calendar className="w-4 h-4 text-gray-600" />
-                        </button>
-                        <button 
-                          onClick={() => {
-                            setSelectedRoom(room);
-                            setShowEditModal(true);
-                          }}
-                          className="w-8 h-8 bg-white/90 backdrop-blur-sm rounded-lg flex items-center justify-center hover:bg-white transition-colors"
-                          title="Edit Room"
-                        >
-                          <Edit2 className="w-4 h-4 text-gray-600" />
-                        </button>
-                        <button 
-                          onClick={() => deleteRoom(room.roomId)}
-                          className="w-8 h-8 bg-white/90 backdrop-blur-sm rounded-lg flex items-center justify-center hover:bg-red-50 transition-colors"
-                          title="Delete Room"
-                        >
-                          <Trash2 className="w-4 h-4 text-red-600" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Room Info */}
-                  <div className="p-6">
-                    <div className="flex items-center gap-2 mb-2">
-                      {getRoomTypeIcon(room.roomType)}
-                      <h3 className="text-xl font-bold text-gray-900 line-clamp-1">
-                        {room.roomName || 'Unnamed Room'}
-                      </h3>
-                    </div>
-                    
-                    <div className="flex items-center gap-2 text-gray-600 mb-3">
-                      <span className="text-sm">{room.roomType || 'Unknown'} Room</span>
-                      {room.bedAvailable && (
-                        <>
-                          <span className="text-gray-400">•</span>
-                          <span className="text-sm">{room.bedAvailable.toString().replace('_', ' ')} Bed</span>
-                        </>
-                      )}
-                    </div>
-
-                    {/* Pricing */}
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                      <div className="text-center p-3 bg-gray-50 rounded-lg">
-                        <p className="text-xs text-gray-500">1 Guest</p>
-                        <p className="text-sm font-medium">₹{room.priceForOneGuest || 0}</p>
-                      </div>
-                      <div className="text-center p-3 bg-gray-50 rounded-lg">
-                        <p className="text-xs text-gray-500">2 Guests</p>
-                        <p className="text-sm font-medium">₹{room.priceForTwoGuest || 0}</p>
-                      </div>
-                    </div>
-
-                    {/* Amenities Preview */}
-                    <div className="mb-4">
-                      <div className="flex flex-wrap gap-1">
-                        {room.breakfastIncluded && (
-                          <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full">
-                            Breakfast
-                          </span>
-                        )}
-                        {room.parkingAvailable && (
-                          <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
-                            Parking
-                          </span>
-                        )}
-                        {room.childrenAllowed && (
-                          <span className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded-full">
-                            Child Friendly
-                          </span>
-                        )}
-                        <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full">
-                          {room.numberOfRooms || 0} Available
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Check-in/out times */}
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                      <div className="text-center p-2 bg-gray-50 rounded-lg">
-                        <Clock className="w-4 h-4 text-gray-500 mx-auto mb-1" />
-                        <p className="text-xs text-gray-500">Check-in</p>
-                        <p className="text-sm font-medium">{room.checkinTime || 'Not set'}</p>
-                      </div>
-                      <div className="text-center p-2 bg-gray-50 rounded-lg">
-                        <Clock className="w-4 h-4 text-gray-500 mx-auto mb-1" />
-                        <p className="text-xs text-gray-500">Check-out</p>
-                        <p className="text-sm font-medium">{room.checkoutTime || 'Not set'}</p>
-                      </div>
-                    </div>
-
-                    {/* View Details Button */}
-                    <button 
-                      onClick={async () => {
-                        try {
-                          const fullRoomData = await fetchRoomById(room.roomId);
-                          setSelectedRoom(fullRoomData);
-                          setShowRoomDetails(true);
-                        } catch (error) {
-                          alert('Failed to load room details');
-                        }
-                      }}
-                      className="w-full py-2 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 flex items-center justify-center gap-2"
-                    >
-                      <Eye className="w-4 h-4" />
-                      View Details
-                    </button>
-                  </div>
-                </div>
+                <RoomCard
+                  key={room.roomId}
+                  room={room}
+                  availabilityStatus={availabilityStatus}
+                  getRoomTypeIcon={getRoomTypeIcon}
+                  getPropertyTypeDisplay={getPropertyTypeDisplay}
+                  activeTab={activeTab}
+                  onDelete={() => deleteRoom(room.roomId)}
+                  onViewDetails={async () => {
+                    try {
+                      const fullRoomData = await fetchRoomById(room.roomId);
+                      setSelectedRoom(fullRoomData);
+                      setShowRoomDetails(true);
+                    } catch (error) {
+                      alert('Failed to load room details');
+                    }
+                  }}
+                />
               );
             })}
           </div>
@@ -646,13 +464,148 @@ const RoomDashboard = () => {
           }} 
         />
       )}
-
-      {/* Other modals would go here */}
     </div>
   );
 };
 
-// Room Details Modal Component (simplified for this example)
+// Room Card Component
+const RoomCard = ({ 
+  room, 
+  availabilityStatus, 
+  getRoomTypeIcon, 
+  getPropertyTypeDisplay, 
+  activeTab, 
+  onDelete, 
+  onViewDetails 
+}) => (
+  <div className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-all duration-300 group">
+    {/* Room Image */}
+    <div className="relative h-48 bg-gradient-to-br from-blue-100 to-indigo-100">
+      {room.roomImages && room.roomImages.length > 0 ? (
+        <img
+          src={room.roomImages[0]}
+          alt={room.roomName}
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            e.target.style.display = 'none';
+            e.target.nextSibling.style.display = 'flex';
+          }}
+        />
+      ) : null}
+      <div className="w-full h-full flex items-center justify-center" style={{display: room.roomImages && room.roomImages.length > 0 ? 'none' : 'flex'}}>
+        <Bed className="w-16 h-16 text-blue-500" />
+      </div>
+      
+      {/* Property Type Badge */}
+      <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg px-2 py-1">
+        <span className="text-xs font-medium text-gray-700">
+          {getPropertyTypeDisplay(room.propertyType)}
+        </span>
+      </div>
+
+      {/* Availability Status */}
+      <div className={`absolute top-4 right-4 px-2 py-1 rounded-lg text-xs font-medium ${availabilityStatus.color}`}>
+        {availabilityStatus.text}
+      </div>
+
+      {/* Action Buttons */}
+      {activeTab === 'my-rooms' && (
+        <div className="absolute bottom-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button className="w-8 h-8 bg-white/90 backdrop-blur-sm rounded-lg flex items-center justify-center hover:bg-white transition-colors">
+            <Edit2 className="w-4 h-4 text-gray-600" />
+          </button>
+          <button 
+            onClick={onDelete}
+            className="w-8 h-8 bg-white/90 backdrop-blur-sm rounded-lg flex items-center justify-center hover:bg-red-50 transition-colors"
+          >
+            <Trash2 className="w-4 h-4 text-red-600" />
+          </button>
+        </div>
+      )}
+    </div>
+
+    {/* Room Info */}
+    <div className="p-6">
+      <div className="flex items-center gap-2 mb-2">
+        {getRoomTypeIcon(room.roomType)}
+        <h3 className="text-xl font-bold text-gray-900 line-clamp-1">
+          {room.roomName || 'Unnamed Room'}
+        </h3>
+      </div>
+      
+      <div className="flex items-center gap-2 text-gray-600 mb-3">
+        <span className="text-sm">{room.roomType || 'Unknown'} Room</span>
+        {room.bedAvailable && (
+          <>
+            <span className="text-gray-400">•</span>
+            <span className="text-sm">{room.bedAvailable.toString().replace('_', ' ')} Bed</span>
+          </>
+        )}
+      </div>
+
+      {/* Pricing */}
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="text-center p-3 bg-gray-50 rounded-lg">
+          <p className="text-xs text-gray-500">1 Guest</p>
+          <p className="text-sm font-medium">₹{room.priceForOneGuest || 0}</p>
+        </div>
+        <div className="text-center p-3 bg-gray-50 rounded-lg">
+          <p className="text-xs text-gray-500">2 Guests</p>
+          <p className="text-sm font-medium">₹{room.priceForTwoGuest || 0}</p>
+        </div>
+      </div>
+
+      {/* Amenities Preview */}
+      <div className="mb-4">
+        <div className="flex flex-wrap gap-1">
+          {room.breakfastIncluded && (
+            <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full">
+              Breakfast
+            </span>
+          )}
+          {room.parkingAvailable && (
+            <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
+              Parking
+            </span>
+          )}
+          {room.childrenAllowed && (
+            <span className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded-full">
+              Child Friendly
+            </span>
+          )}
+          <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full">
+            {room.numberOfRooms || 0} Available
+          </span>
+        </div>
+      </div>
+
+      {/* Check-in/out times */}
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="text-center p-2 bg-gray-50 rounded-lg">
+          <Clock className="w-4 h-4 text-gray-500 mx-auto mb-1" />
+          <p className="text-xs text-gray-500">Check-in</p>
+          <p className="text-sm font-medium">{room.checkinTime || 'Not set'}</p>
+        </div>
+        <div className="text-center p-2 bg-gray-50 rounded-lg">
+          <Clock className="w-4 h-4 text-gray-500 mx-auto mb-1" />
+          <p className="text-xs text-gray-500">Check-out</p>
+          <p className="text-sm font-medium">{room.checkoutTime || 'Not set'}</p>
+        </div>
+      </div>
+
+      {/* View Details Button */}
+      <button 
+        onClick={onViewDetails}
+        className="w-full py-2 px-4 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+      >
+        <Eye className="w-4 h-4" />
+        View Details
+      </button>
+    </div>
+  </div>
+);
+
+// Room Details Modal Component
 const RoomDetailsModal = ({ room, onClose }) => {
   const parseInvoiceDetails = (invoiceDetailsStr) => {
     try {
@@ -756,18 +709,6 @@ const RoomDetailsModal = ({ room, onClose }) => {
                   </p>
                 </div>
               </div>
-
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-2">Status</h3>
-                <div className="space-y-2 text-sm">
-                  <p className="flex items-center gap-2">
-                    {room.isActive ? <Check className="w-4 h-4 text-green-600" /> : <X className="w-4 h-4 text-red-600" />}
-                    {room.isActive ? 'Active Listing' : 'Inactive Listing'}
-                  </p>
-                  <p><span className="font-medium">Hotel ID:</span> {room.hotelId || 'Not linked'}</p>
-                  <p><span className="font-medium">User ID:</span> {room.userId || 'Unknown'}</p>
-                </div>
-              </div>
             </div>
           </div>
 
@@ -810,7 +751,7 @@ const RoomDetailsModal = ({ room, onClose }) => {
                     <div className="space-y-1">
                       {room.foodDrinkItems.map((item, index) => (
                         <div key={index} className="flex items-center gap-2 text-sm">
-                          <Coffee className="w-3 h-3 text-orange-600" />
+                          <Check className="w-3 h-3 text-orange-600" />
                           {item.replace(/_/g, ' ')}
                         </div>
                       ))}
@@ -846,22 +787,6 @@ const RoomDetailsModal = ({ room, onClose }) => {
                   </span>
                 ))}
               </div>
-            </div>
-          )}
-
-          {/* Location */}
-          {room.locationLink && (
-            <div className="mb-6">
-              <h3 className="font-semibold text-gray-900 mb-3">Location</h3>
-              <a
-                href={room.locationLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <MapPin className="w-4 h-4" />
-                View on Map
-              </a>
             </div>
           )}
 
