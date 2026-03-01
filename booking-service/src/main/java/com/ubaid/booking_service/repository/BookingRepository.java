@@ -66,9 +66,9 @@ public class BookingRepository {
 
     public List<Booking> findByUserId(String userId) {
         try {
+            // FIXED: Removed .orderBy("createdAt") to avoid missing index error
             Query query = firestore.collection(COLLECTION_NAME)
-                    .whereEqualTo("userId", userId)
-                    .orderBy("createdAt", Query.Direction.DESCENDING);
+                    .whereEqualTo("userId", userId);
 
             QuerySnapshot querySnapshot = query.get().get();
             List<Booking> bookings = new ArrayList<>();
@@ -76,6 +76,9 @@ public class BookingRepository {
             for (DocumentSnapshot document : querySnapshot.getDocuments()) {
                 bookings.add(convertMapToEntity(document.getData(), document.getId()));
             }
+
+            // Perform sorting in memory instead
+            bookings.sort(Comparator.comparing(Booking::getCreatedAt).reversed());
 
             log.info("Found {} bookings for user: {}", bookings.size(), userId);
             return bookings;
@@ -153,6 +156,9 @@ public class BookingRepository {
                 }
             }
 
+            // Optional: Sort by date
+            bookings.sort(Comparator.comparing(Booking::getCreatedAt).reversed());
+
             return bookings;
         } catch (InterruptedException | ExecutionException e) {
             log.error("Error finding bookings by location: {}", e.getMessage());
@@ -176,6 +182,9 @@ public class BookingRepository {
                     bookings.add(booking);
                 }
             }
+
+            // Optional: Sort by date
+            bookings.sort(Comparator.comparing(Booking::getCreatedAt).reversed());
 
             return bookings;
         } catch (InterruptedException | ExecutionException e) {
@@ -211,9 +220,9 @@ public class BookingRepository {
 
     public List<Booking> findByHotelId(String hotelId) {
         try {
+            // FIXED: Removed .orderBy("createdAt") to avoid missing index error
             Query query = firestore.collection(COLLECTION_NAME)
-                    .whereEqualTo("hotelId", hotelId)
-                    .orderBy("createdAt", Query.Direction.DESCENDING);
+                    .whereEqualTo("hotelId", hotelId);
 
             QuerySnapshot querySnapshot = query.get().get();
             List<Booking> bookings = new ArrayList<>();
@@ -221,6 +230,9 @@ public class BookingRepository {
             for (DocumentSnapshot document : querySnapshot.getDocuments()) {
                 bookings.add(convertMapToEntity(document.getData(), document.getId()));
             }
+
+            // Perform sorting in memory instead
+            bookings.sort(Comparator.comparing(Booking::getCreatedAt).reversed());
 
             return bookings;
         } catch (InterruptedException | ExecutionException e) {

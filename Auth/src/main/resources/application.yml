@@ -1,20 +1,21 @@
+server:
+  port: 8080
+
 spring:
   application:
     name: hotel-management
 
-  # File Upload Configuration
   servlet:
     multipart:
       enabled: true
       max-file-size: 5MB
       max-request-size: 10MB
 
-  # Email Configuration
   mail:
     host: smtp.gmail.com
     port: 587
-    username: ${EMAIL_USERNAME}
-    password: ${EMAIL_PASSWORD}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
     properties:
       mail:
         smtp:
@@ -22,7 +23,6 @@ spring:
           starttls:
             enable: true
 
-  # OAuth2 Configuration
   security:
     oauth2:
       client:
@@ -44,46 +44,33 @@ spring:
             user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
             user-name-attribute: sub
 
-# Server Configuration
-server:
-  port: 8080
+firebase:
+  service-account-key-path: ${FIREBASE_KEY_PATH}
+  project-id: ${FIREBASE_PROJECT_ID}
 
-# Application Configuration
-app:
-  name: Hotel Management System
-  oauth2:
-    # Default redirect URL for OAuth2 success
-    default-redirect-url: http://localhost:3000/auth/callback
-    # Authorized redirect URIs (comma-separated)
-    authorized-redirect-uris:
-      - http://localhost:3000/auth/callback
-      - http://localhost:3000/login
-      - http://localhost:8080/auth/callback
-
-# Cloudinary Configuration
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME}
   api-key: ${CLOUDINARY_API_KEY}
   api-secret: ${CLOUDINARY_API_SECRET}
 
-# Firebase Configuration
-firebase:
-  service-account-key-path: ${FIREBASE_SERVICE_ACCOUNT_KEY_PATH}
-  project-id: ${FIREBASE_PROJECT_ID}
-
-# JWT Configuration
 jwt:
   secret: ${JWT_SECRET}
-  access-token-ms: 900000
+  access-token-ms: 90000000
   refresh-token-ms: 604800000
   cleanup:
     cron: "0 0 2 * * *"
 
-# OTP Configuration
+app:
+  name: Hotel Management System
+  oauth2:
+    default-redirect-url: ${FRONTEND_URL}/auth/callback
+    authorized-redirect-uris:
+      - ${FRONTEND_URL}/auth/callback
+      - ${FRONTEND_URL}/login
+
 otp:
   expiry-minutes: 10
 
-# Profile Image Configuration
 profile:
   image:
     max-size-mb: 5
@@ -94,7 +81,6 @@ profile:
       - image/gif
       - image/webp
 
-# CORS Configuration
 cors:
   allowed-origins: "*"
   allowed-methods:
@@ -105,17 +91,15 @@ cors:
     - OPTIONS
   allowed-headers: "*"
 
-# Logging Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
 logging:
   level:
     com.ubaid.Auth: INFO
-    com.ubaid.Auth.service.CloudinaryService: INFO
-    com.ubaid.Auth.controller.ProfileController: INFO
-    com.ubaid.Auth.service.AuthService: INFO
-    org.springframework.security: DEBUG
-    org.springframework.security.oauth2: DEBUG
-    org.springframework.security.web: DEBUG
-    com.hotel.management: DEBUG
-
-#  spring-boot:build-image -DskipTests
-#    docker container run -d -p 8080:8080 ubaidrza/mmv3-auth:0.0.1-SNAPSHOT
+    org.springframework.security: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"

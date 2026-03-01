@@ -109,12 +109,15 @@ public class HotelRepository {
     }
     public List<Hotel> findByNameContaining(String name) {
         try {
-// Convert search name to lowercase for case-insensitive search
             String lowerCaseName = name.toLowerCase();
-// Firestore doesn't support case-insensitive queries directly,
-// so we'll get all hotels and filter in memory
             ApiFuture<QuerySnapshot> querySnapshot = firestore.collection(COLLECTION_NAME).get();
             List<QueryDocumentSnapshot> documents = querySnapshot.get().getDocuments();
+
+            // --- DEBUG LOG START ---
+            log.info("Total Hotels Found in DB: {}", documents.size());
+            documents.forEach(doc -> log.info("DB Hotel Name: {}", doc.getString("hotelName")));
+            // --- DEBUG LOG END ---
+
             return documents.stream()
                     .map(doc -> convertMapToEntity(doc.getData(), doc.getId()))
                     .filter(hotel -> hotel.getHotelName() != null &&

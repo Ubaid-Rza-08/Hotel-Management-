@@ -1,9 +1,9 @@
 server:
-  port: 8082
+  port: 8083
 
 spring:
   application:
-    name: hotel-listing-service
+    name: room-listing-service
   servlet:
     multipart:
       max-file-size: 10MB
@@ -21,9 +21,12 @@ cloudinary:
 jwt:
   secret: ${JWT_SECRET}
 
-# Points to Docker service name, not localhost
+# Points to Docker service names, not localhost
 auth-service:
   url: http://auth-service:8080
+
+hotel-service:
+  url: http://hotel-listing-service:8082
 
 management:
   endpoints:
@@ -33,7 +36,7 @@ management:
 
 logging:
   level:
-    com.ubaid.hotel_listing_service: INFO
+    com.ubaid.room_listing_service: INFO
     org.springframework.security: INFO
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"

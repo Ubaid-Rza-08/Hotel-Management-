@@ -11,14 +11,14 @@ spring:
           default:
             connectTimeout: 5000
             readTimeout: 5000
-            loggerLevel: full
+            loggerLevel: basic
 
 firebase:
-  service-account-key-path: ${FIREBASE_KEY_PATH}
+  service-account-key-path: /app/firebase-service-account.json
   project-id: ${FIREBASE_PROJECT_ID}
 
 jwt:
-  secret: ${JWT_SECRET:default-super-secret-key}
+  secret: ${JWT_SECRET}
 
 auth-service:
   url: http://localhost:8080
@@ -33,20 +33,26 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health, info, metrics
 
 logging:
   level:
     com.ubaid.booking_service: INFO
-    com.ubaid.booking_service.config.SecurityConfig: DEBUG
-    com.ubaid.booking_service.service.JwtService: DEBUG
-    org.springframework.security: DEBUG  # For debugging security issues
-#    org.springframework.security: INFO
-    org.springframework.security.web: DEBUG
-    org.springframework.web.servlet.mvc.method.annotation: DEBUG
-    org.springframework.cloud.openfeign: DEBUG
+    org.springframework.security: INFO
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
 
-#  spring-boot:build-image -DskipTests
-#docker container run -d -p 8084:8084 ubaidrza/mmv3-booking-service:0.0.1-SNAPSHOT
+---
+spring:
+  config:
+    activate:
+      on-profile: docker
+
+auth-service:
+  url: http://auth-service:8080
+
+hotel-service:
+  url: http://hotel-listing-service:8082
+
+room-service:
+  url: http://room-listing-service:8083
