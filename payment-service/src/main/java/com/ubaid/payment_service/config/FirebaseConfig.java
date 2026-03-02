@@ -1,4 +1,4 @@
-package com.ubaid.Auth.config;
+package com.ubaid.payment_service.config;
 
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.firestore.Firestore;
@@ -25,7 +25,7 @@ public class FirebaseConfig {
     private String projectId;
 
     @PostConstruct
-    public void initialize() {
+    public void initializeFirebase() {
         try {
             if (FirebaseApp.getApps().isEmpty()) {
                 FileInputStream serviceAccount = new FileInputStream(serviceAccountKeyPath);
@@ -36,7 +36,7 @@ public class FirebaseConfig {
                         .build();
 
                 FirebaseApp.initializeApp(options);
-                log.info("Firebase initialized successfully");
+                log.info("Firebase initialized successfully for payment-service");
             }
         } catch (IOException e) {
             log.error("Failed to initialize Firebase", e);

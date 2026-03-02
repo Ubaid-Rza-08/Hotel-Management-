@@ -14,11 +14,11 @@ spring:
             loggerLevel: basic
 
 firebase:
-  service-account-key-path: C:/Users/ubaid/Downloads/Hotel-Management/firebase-service-account.json
-  project-id: jailer-2f131
+  service-account-key-path: /app/firebase-service-account.json
+  project-id: ${FIREBASE_PROJECT_ID}
 
 jwt:
-  secret: asdfhads9f67as98dfyaisudhfa98s67dfy89aishudfuays89dfyasi8df7asdf87987g98a7sg986a89sdf7ygit
+  secret: ${JWT_SECRET}
 
 auth-service:
   url: http://localhost:8080

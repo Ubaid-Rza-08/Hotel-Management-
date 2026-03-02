@@ -1,0 +1,44 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: payment-service
+
+razorpay:
+  keyId: ${RAZORPAY_KEY_ID}
+  keySecret: ${RAZORPAY_KEY_SECRET}
+
+firebase:
+  service-account-key-path: C:/Users/ubaid/Downloads/Hotel-Management/firebase-service-account.json
+  project-id: ${FIREBASE_PROJECT_ID:jailer-2f131}
+
+jwt:
+  secret: ${JWT_SECRET}
+
+# Local URLs
+auth-service:
+  url: http://localhost:8080
+
+booking-service:
+  url: http://localhost:8084
+
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 5000
+        readTimeout: 10000
+        loggerLevel: BASIC
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+logging:
+  level:
+    com.ubaid.payment_service: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"

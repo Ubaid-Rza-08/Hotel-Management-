@@ -10,16 +10,16 @@ spring:
       max-request-size: 50MB
 
 firebase:
-  service-account-key-path: C:/Users/ubaid/Downloads/Hotel-Management/firebase-service-account.json
-  project-id: jailer-2f131
+  service-account-key-path: ${FIREBASE_KEY_PATH}
+  project-id: ${FIREBASE_PROJECT_ID}
 
 cloudinary:
-  cloud-name: dozwmzy0b
-  api-key: 368441729246377
-  api-secret: a_ZU4UoxqCNSTxaS6M4RIb3YQig
+  cloud-name: ${CLOUDINARY_CLOUD_NAME}
+  api-key: ${CLOUDINARY_API_KEY}
+  api-secret: ${CLOUDINARY_API_SECRET}
 
 jwt:
-  secret: asdfhads9f67as98dfyaisudhfa98s67dfy89aishudfuays89dfyasi8df7asdf87987g98a7sg986a89sdf7ygit
+  secret: ${JWT_SECRET}
 
 # Points to Docker service names, not localhost
 auth-service:

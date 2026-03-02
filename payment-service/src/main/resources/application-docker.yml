@@ -1,0 +1,29 @@
+# Overrides for Docker environment (activated via SPRING_PROFILES_ACTIVE=docker)
+spring:
+  config:
+    activate:
+      on-profile: docker
+
+  # OAuth2 redirect must point to the container host in Docker
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+
+firebase:
+  service-account-key-path: /app/firebase-service-account.json
+  project-id: ${FIREBASE_PROJECT_ID}
+
+app:
+  oauth2:
+    default-redirect-url: ${FRONTEND_URL}/auth/callback
+    authorized-redirect-uris:
+      - ${FRONTEND_URL}/auth/callback
+      - ${FRONTEND_URL}/login
+
+logging:
+  level:
+    com.ubaid.Auth: INFO
+    org.springframework.security: INFO

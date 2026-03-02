@@ -1,12 +1,19 @@
+# Run:  docker compose down && docker compose up -d --build
+
 services:
 
   auth-service:
+    build:
+      context: ./Auth
+      dockerfile: Dockerfile
     image: ubaidrza/mmv3-auth:0.0.1-SNAPSHOT
     container_name: hotel-auth-service
     ports:
       - "8080:8080"
     env_file:
       - .env
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
     volumes:
       - ${FIREBASE_HOST_KEY_PATH}:/app/firebase-service-account.json:ro
     networks:
@@ -14,12 +21,17 @@ services:
     restart: unless-stopped
 
   hotel-listing-service:
+    build:
+      context: ./hotel-listing-service
+      dockerfile: Dockerfile
     image: ubaidrza/mmv3-hotel-listing-service:0.0.1-SNAPSHOT
     container_name: hotel-listing-service
     ports:
       - "8082:8082"
     env_file:
       - .env
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
     volumes:
       - ${FIREBASE_HOST_KEY_PATH}:/app/firebase-service-account.json:ro
     networks:
@@ -29,12 +41,17 @@ services:
       - auth-service
 
   room-listing-service:
+    build:
+      context: ./room-listing-service
+      dockerfile: Dockerfile
     image: ubaidrza/mmv3-room-listing-service:0.0.1-SNAPSHOT
     container_name: room-listing-service
     ports:
       - "8083:8083"
     env_file:
       - .env
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
     volumes:
       - ${FIREBASE_HOST_KEY_PATH}:/app/firebase-service-account.json:ro
     networks:
@@ -45,12 +62,17 @@ services:
       - hotel-listing-service
 
   booking-service:
+    build:
+      context: ./booking-service
+      dockerfile: Dockerfile
     image: ubaidrza/mmv3-booking-service:0.0.1-SNAPSHOT
     container_name: booking-service
     ports:
       - "8084:8084"
     env_file:
       - .env
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
     volumes:
       - ${FIREBASE_HOST_KEY_PATH}:/app/firebase-service-account.json:ro
     networks:
@@ -60,6 +82,27 @@ services:
       - auth-service
       - hotel-listing-service
       - room-listing-service
+
+  payment-service:
+    build:
+      context: ./payment-service
+      dockerfile: Dockerfile
+    image: ubaidrza/mmv3-payment-service:0.0.1-SNAPSHOT
+    container_name: payment-service
+    ports:
+      - "8085:8085"
+    env_file:
+      - .env
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    volumes:
+      - ${FIREBASE_HOST_KEY_PATH}:/app/firebase-service-account.json:ro
+    networks:
+      - hotel-network
+    restart: unless-stopped
+    depends_on:
+      - auth-service
+      - booking-service
 
 networks:
   hotel-network:
