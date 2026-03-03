@@ -1,0 +1,146 @@
+name: CI/CD - Hotel Management
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+
+jobs:
+
+  # ──────────────────────────────────────────────
+  # JOB 1: Build & Push all Docker images
+  # ──────────────────────────────────────────────
+  build-and-push:
+    name: Build & Push Images
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # ── Auth Service ──
+      - name: Build & Push auth-service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./Auth
+          dockerfile: ./Auth/Dockerfile
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: ${{ secrets.DOCKER_USERNAME }}/mmv3-auth:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ── Hotel Listing Service ──
+      - name: Build & Push hotel-listing-service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./hotel-listing-service
+          dockerfile: ./hotel-listing-service/Dockerfile
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: ${{ secrets.DOCKER_USERNAME }}/mmv3-hotel-listing-service:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ── Room Listing Service ──
+      - name: Build & Push room-listing-service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./room-listing-service
+          dockerfile: ./room-listing-service/Dockerfile
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: ${{ secrets.DOCKER_USERNAME }}/mmv3-room-listing-service:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ── Booking Service ──
+      - name: Build & Push booking-service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./booking-service
+          dockerfile: ./booking-service/Dockerfile
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: ${{ secrets.DOCKER_USERNAME }}/mmv3-booking-service:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ── Payment Service ──
+      - name: Build & Push payment-service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./payment-service
+          dockerfile: ./payment-service/Dockerfile
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: ${{ secrets.DOCKER_USERNAME }}/mmv3-payment-service:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ── Frontend ──
+      - name: Build & Push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./booking-pro
+          dockerfile: ./booking-pro/Dockerfile
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: ${{ secrets.DOCKER_USERNAME }}/mmv3-frontend:latest
+          build-args: |
+            VITE_AUTH_API=${{ secrets.VITE_AUTH_API }}
+            VITE_HOTEL_API=${{ secrets.VITE_HOTEL_API }}
+            VITE_ROOM_API=${{ secrets.VITE_ROOM_API }}
+            VITE_BOOKING_API=${{ secrets.VITE_BOOKING_API }}
+            VITE_PAYMENT_API=${{ secrets.VITE_PAYMENT_API }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ──────────────────────────────────────────────
+  # JOB 2: Deploy to VPS (runs after build succeeds)
+  # ──────────────────────────────────────────────
+  deploy:
+    name: Deploy to Server
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Copy docker-compose to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          source: "docker-compose.prod.yml,.env.prod"
+          target: "/opt/hotel-management"
+
+      - name: Deploy on server via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd /opt/hotel-management
+
+            # Pull latest images
+            docker compose -f docker-compose.prod.yml pull
+
+            # Restart all services with new images
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+
+            # Clean up old images
+            docker image prune -f
+
+            echo "✅ Deployment complete"

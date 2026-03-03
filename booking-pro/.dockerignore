@@ -1,0 +1,31 @@
+# Dependencies - reinstalled during build
+node_modules/
+
+# Build output - rebuilt during Docker build
+dist/
+
+# Environment files - values passed via docker-compose build args
+.env
+.env.local
+.env.docker
+.env.production
+
+# Git
+.git/
+.gitignore
+
+# Editor
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# README
+README.md

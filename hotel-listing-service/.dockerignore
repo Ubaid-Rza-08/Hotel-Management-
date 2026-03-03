@@ -1,0 +1,33 @@
+# Maven build output - rebuilt inside Docker
+target/
+
+# Maven wrapper cache
+.mvn/repository/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Docs
+README.md
+HELP.md
+
+# Environment
+.env
+.env.*
