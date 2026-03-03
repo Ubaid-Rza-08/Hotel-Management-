@@ -9,7 +9,7 @@ on:
 env:
   AWS_REGION: ap-south-1
   EKS_CLUSTER: hello-hotel
-  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+  DOCKER_USERNAME: ubaidrza
 
 jobs:
 
@@ -230,13 +230,35 @@ jobs:
            kubectl logs -l app=frontend -n hotel-management --tail=50 && \
            exit 1)
 
-      - name: Get Load Balancer URL
+      - name: Get Load Balancer URLs
         run: |
-          echo "⏳ Waiting for LoadBalancer IP..."
-          sleep 30
-          echo "🚀 Your app is live at:"
+          echo "⏳ Waiting for LoadBalancer IPs..."
+          sleep 60
+          echo ""
+          echo "📋 All service URLs:"
+          kubectl get svc -n hotel-management \
+            -o custom-columns='NAME:.metadata.name,URL:.status.loadBalancer.ingress[0].hostname,PORT:.spec.ports[0].port'
+          echo ""
+          echo "🚀 Frontend:"
           kubectl get svc frontend -n hotel-management \
             -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
           echo ""
-          echo "📋 All services:"
-          kubectl get all -n hotel-management
+          echo "🔐 Auth Service:"
+          kubectl get svc auth-service -n hotel-management \
+            -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+          echo ""
+          echo "🏨 Hotel Service:"
+          kubectl get svc hotel-listing-service -n hotel-management \
+            -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+          echo ""
+          echo "🛏️ Room Service:"
+          kubectl get svc room-listing-service -n hotel-management \
+            -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+          echo ""
+          echo "📅 Booking Service:"
+          kubectl get svc booking-service -n hotel-management \
+            -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+          echo ""
+          echo "💳 Payment Service:"
+          kubectl get svc payment-service -n hotel-management \
+            -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
