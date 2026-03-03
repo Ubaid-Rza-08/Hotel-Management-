@@ -28,7 +28,6 @@ spec:
               mountPath: /app/firebase-service-account.json
               subPath: firebase-service-account.json
               readOnly: true
-          # Wait for Spring Boot to fully start before marking ready
           readinessProbe:
             httpGet:
               path: /actuator/health
@@ -36,7 +35,6 @@ spec:
             initialDelaySeconds: 60
             periodSeconds: 15
             failureThreshold: 5
-          # Restart if Spring Boot crashes
           livenessProbe:
             httpGet:
               path: /actuator/health
@@ -44,7 +42,6 @@ spec:
             initialDelaySeconds: 90
             periodSeconds: 20
             failureThreshold: 3
-          # Give enough memory for Spring Boot + Firebase
           resources:
             requests:
               memory: "512Mi"
