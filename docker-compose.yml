@@ -104,6 +104,35 @@ services:
       - auth-service
       - booking-service
 
+  # ──────────────────────────────────────────────
+  # Frontend  (port 3000)
+  # ──────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./booking-pro
+      dockerfile: Dockerfile
+      args:
+        # These are baked into the JS bundle at build time
+        # Use localhost because the BROWSER calls these URLs directly
+        VITE_AUTH_API: http://localhost:8080/api/v1
+        VITE_HOTEL_API: http://localhost:8082/api/hotels
+        VITE_ROOM_API: http://localhost:8083/api/rooms
+        VITE_BOOKING_API: http://localhost:8084/api/bookings
+        VITE_PAYMENT_API: http://localhost:8085/api/payments
+    image: ubaidrza/mmv3-frontend:0.0.1-SNAPSHOT
+    container_name: hotel-frontend
+    ports:
+      - "3000:80"
+    networks:
+      - hotel-network
+    restart: unless-stopped
+    depends_on:
+      - auth-service
+      - hotel-listing-service
+      - room-listing-service
+      - booking-service
+      - payment-service
+
 networks:
   hotel-network:
     driver: bridge
