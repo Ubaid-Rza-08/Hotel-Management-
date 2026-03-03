@@ -29,15 +29,13 @@ spec:
               subPath: firebase-service-account.json
               readOnly: true
           readinessProbe:
-            httpGet:
-              path: /actuator/health
+            tcpSocket:
               port: 8082
             initialDelaySeconds: 60
             periodSeconds: 15
             failureThreshold: 5
           livenessProbe:
-            httpGet:
-              path: /actuator/health
+            tcpSocket:
               port: 8082
             initialDelaySeconds: 90
             periodSeconds: 20
