@@ -9,10 +9,12 @@ COPY src ./src
 RUN mvn clean package -DskipTests
 
 # Stage 2: Runtime
-FROM eclipse-temurin:21-jre-alpine
+# Using eclipse-temurin:21-jre (Debian) NOT alpine
+# Alpine causes SIGSEGV crash with Firebase gRPC native libraries
+FROM eclipse-temurin:21-jre
 WORKDIR /app
 
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN groupadd -r appgroup && useradd -r -g appgroup appuser
 
 COPY --from=build /app/target/*.jar app.jar
 
