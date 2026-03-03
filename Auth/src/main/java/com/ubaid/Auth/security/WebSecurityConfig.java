@@ -36,6 +36,8 @@ public class WebSecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/public/**").permitAll()
                         .requestMatchers("/api/v1/auth/**").permitAll()
+                        .requestMatchers("/actuator/health").permitAll()
+                        .requestMatchers("/actuator/info").permitAll()
                         .requestMatchers("/api/v1/auth/callback/**").permitAll() // Allow callback endpoints
                         .requestMatchers("/api/v1/users/*/validate").permitAll()
                         .requestMatchers("/v3/api-docs/**").permitAll()

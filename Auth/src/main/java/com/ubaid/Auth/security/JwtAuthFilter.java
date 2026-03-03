@@ -33,6 +33,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         // Skip JWT validation for public endpoints
         return path.startsWith("/v3/api-docs") ||
                 path.startsWith("/swagger-ui") ||
+                path.startsWith("/actuator/health") ||
                 path.startsWith("/swagger-resources") ||
                 path.startsWith("/webjars/swagger-ui") ||
                 path.startsWith("/api/v1/auth/") ||
