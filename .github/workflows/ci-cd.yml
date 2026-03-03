@@ -7,9 +7,9 @@ on:
     branches: [ main ]
 
 env:
-  AWS_REGION: ap-south-1           # Change to your AWS region
-  EKS_CLUSTER: hotel-management    # Your EKS cluster name
-  DOCKER_USERNAME: ubaidrza
+  AWS_REGION: ap-south-1
+  EKS_CLUSTER: hotel-management
+  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
 
 jobs:
 
@@ -147,18 +147,17 @@ jobs:
             --from-literal=FRONTEND_URL="${{ secrets.FRONTEND_URL }}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: Create Firebase secret from file
+      - name: Create Firebase secret
         run: |
-          echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}" > firebase-service-account.json
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}' > firebase-service-account.json
           kubectl create secret generic firebase-secret \
             --namespace=hotel-management \
             --from-file=firebase-service-account.json=firebase-service-account.json \
             --dry-run=client -o yaml | kubectl apply -f -
           rm firebase-service-account.json
 
-      - name: Deploy all services
+      - name: Update image tags
         run: |
-          # Update image tags to current commit SHA
           sed -i "s|:latest|:${{ github.sha }}|g" k8s/auth/deployment.yml
           sed -i "s|:latest|:${{ github.sha }}|g" k8s/hotel/deployment.yml
           sed -i "s|:latest|:${{ github.sha }}|g" k8s/room/deployment.yml
@@ -166,6 +165,8 @@ jobs:
           sed -i "s|:latest|:${{ github.sha }}|g" k8s/payment/deployment.yml
           sed -i "s|:latest|:${{ github.sha }}|g" k8s/frontend/deployment.yml
 
+      - name: Deploy all services
+        run: |
           kubectl apply -f k8s/common/
           kubectl apply -f k8s/auth/
           kubectl apply -f k8s/hotel/
@@ -174,17 +175,68 @@ jobs:
           kubectl apply -f k8s/payment/
           kubectl apply -f k8s/frontend/
 
-      - name: Wait for rollout
+      # ── Wait with longer timeout + debug on failure ──
+      - name: Wait for auth-service rollout
         run: |
-          kubectl rollout status deployment/auth-service -n hotel-management --timeout=120s
-          kubectl rollout status deployment/hotel-listing-service -n hotel-management --timeout=120s
-          kubectl rollout status deployment/room-listing-service -n hotel-management --timeout=120s
-          kubectl rollout status deployment/booking-service -n hotel-management --timeout=120s
-          kubectl rollout status deployment/payment-service -n hotel-management --timeout=120s
-          kubectl rollout status deployment/frontend -n hotel-management --timeout=120s
+          kubectl rollout status deployment/auth-service \
+            -n hotel-management --timeout=300s || \
+          (echo "❌ auth-service failed. Pod logs:" && \
+           kubectl describe pods -l app=auth-service -n hotel-management && \
+           kubectl logs -l app=auth-service -n hotel-management --tail=50 && \
+           exit 1)
+
+      - name: Wait for hotel-listing-service rollout
+        run: |
+          kubectl rollout status deployment/hotel-listing-service \
+            -n hotel-management --timeout=300s || \
+          (echo "❌ hotel-listing-service failed. Pod logs:" && \
+           kubectl describe pods -l app=hotel-listing-service -n hotel-management && \
+           kubectl logs -l app=hotel-listing-service -n hotel-management --tail=50 && \
+           exit 1)
+
+      - name: Wait for room-listing-service rollout
+        run: |
+          kubectl rollout status deployment/room-listing-service \
+            -n hotel-management --timeout=300s || \
+          (echo "❌ room-listing-service failed. Pod logs:" && \
+           kubectl describe pods -l app=room-listing-service -n hotel-management && \
+           kubectl logs -l app=room-listing-service -n hotel-management --tail=50 && \
+           exit 1)
+
+      - name: Wait for booking-service rollout
+        run: |
+          kubectl rollout status deployment/booking-service \
+            -n hotel-management --timeout=300s || \
+          (echo "❌ booking-service failed. Pod logs:" && \
+           kubectl describe pods -l app=booking-service -n hotel-management && \
+           kubectl logs -l app=booking-service -n hotel-management --tail=50 && \
+           exit 1)
+
+      - name: Wait for payment-service rollout
+        run: |
+          kubectl rollout status deployment/payment-service \
+            -n hotel-management --timeout=300s || \
+          (echo "❌ payment-service failed. Pod logs:" && \
+           kubectl describe pods -l app=payment-service -n hotel-management && \
+           kubectl logs -l app=payment-service -n hotel-management --tail=50 && \
+           exit 1)
+
+      - name: Wait for frontend rollout
+        run: |
+          kubectl rollout status deployment/frontend \
+            -n hotel-management --timeout=180s || \
+          (echo "❌ frontend failed. Pod logs:" && \
+           kubectl describe pods -l app=frontend -n hotel-management && \
+           kubectl logs -l app=frontend -n hotel-management --tail=50 && \
+           exit 1)
 
       - name: Get Load Balancer URL
         run: |
-          echo "🚀 Frontend URL:"
+          echo "⏳ Waiting for LoadBalancer IP..."
+          sleep 30
+          echo "🚀 Your app is live at:"
           kubectl get svc frontend -n hotel-management \
             -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+          echo ""
+          echo "📋 All services:"
+          kubectl get all -n hotel-management
