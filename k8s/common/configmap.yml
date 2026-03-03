@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hotel-config
+  namespace: hotel-management
+data:
+  SPRING_PROFILES_ACTIVE: "docker"
+  FIREBASE_KEY_PATH: "/app/firebase-service-account.json"

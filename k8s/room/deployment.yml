@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: room-listing-service
+  namespace: hotel-management
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: room-listing-service
+  template:
+    metadata:
+      labels:
+        app: room-listing-service
+    spec:
+      containers:
+        - name: room-listing-service
+          image: ubaidrza/mmv3-room-listing-service:latest
+          ports:
+            - containerPort: 8083
+          envFrom:
+            - configMapRef:
+                name: hotel-config
+            - secretRef:
+                name: hotel-secrets
+          volumeMounts:
+            - name: firebase-key
+              mountPath: /app/firebase-service-account.json
+              subPath: firebase-service-account.json
+              readOnly: true
+      volumes:
+        - name: firebase-key
+          secret:
+            secretName: firebase-secret
